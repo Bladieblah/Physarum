@@ -5,63 +5,57 @@
 #include <math.h>
 #include <vector>
 
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/cl.h>
-#endif
-
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #include <GLUT/glut.h>
 
 #include "colour.hpp"
 
-// For loading shader files
-#define MAX_SOURCE_SIZE (0x100000)
-
 // Window size
-#define size_x 1920
-#define size_y 1080
+// #define size_x 1920
+// #define size_y 1080
+#define size_x 1400
+#define size_y 801
 
-// OpenCL initialisation
-cl_platform_id platform_id = NULL;
-cl_device_id device_id = NULL;
-cl_context context = NULL;
-cl_command_queue command_queue = NULL;
-
-cl_mem mapmobj = NULL;
-cl_mem datamobj = NULL;
-
-cl_program program = NULL;
-cl_kernel kernel = NULL;
-cl_uint ret_num_devices;
-cl_uint ret_num_platforms;
-cl_int ret;
-
-size_t source_size;
-char *source_str;
-
-char to_change;
+bool showColorBar = true;
+double one_9 = 1. / 9.;
 
 // Array to be drawn
 unsigned int data[size_y*size_x*3];
 
+double diffKernel[3][3] = {
+    {1./9., 1./9., 1./9.},
+    {1./9., 1./9., 1./9.},
+    {1./9., 1./9., 1./9.}
+};
+
 float *colourMap;
 int nColours = 255;
 
-// Kernel size for parallelisation
-size_t global_item_size[2] = {(size_t)size_x, (size_t)size_y};
-size_t local_item_size[2] = {(size_t)size_x, (size_t)size_y};
+typedef struct Particle {
+    double x, y;
+    double phi;
+} Particle;
+
+int nParticles = 10000;
+
+Particle *particles;
+double **trail, **trailDummy;
 
 void makeColourmap() {
-    std::vector<float> x = {0., 0.2, 0.4, 0.7, 1.};
+    // std::vector<float> x = {0., 0.2, 0.4, 0.7, 1.};
+    // std::vector< std::vector<float> > y = {
+    //     {26,17,36},
+    //     {33,130,133},
+    //     {26,17,36},
+    //     {200,40,187},
+    //     {241, 249, 244}
+    // };
+
+    std::vector<float> x = {0., 1.};
     std::vector< std::vector<float> > y = {
-        {26,17,36},
-        {33,130,133},
-        {26,17,36},
-        {200,40,187},
-        {241, 249, 244}
+        {0,0,0},
+        {255,255,255}
     };
 
     Colour col(x, y, nColours);
@@ -69,88 +63,106 @@ void makeColourmap() {
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
     
     col.apply(colourMap);
-    
-    // Write colourmap to GPU
-    ret = clEnqueueWriteBuffer(command_queue, mapmobj, CL_TRUE, 0, 3*nColours*sizeof(float), colourMap, 0, NULL, NULL);
 }
 
-void setKernelArgs() {
-    ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&mapmobj);
-    ret = clSetKernelArg(kernel, 1, sizeof(int), &nColours);
-    ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&datamobj);
+void processTrail() {
+    int i, j, k;
+    int ind, ind2;
+    
+    for (i=0; i<size_x; i++) {
+        for (j=0; j<size_y; j++) {
+            ind = 3 * (size_x * j + i);
+            if (showColorBar && i < 70) {
+                int colInd = 3 * (int)(j / (double)size_y * nColours);
+                data[ind + 0] = colourMap[colInd + 0] * 4294967295;
+                data[ind + 1] = colourMap[colInd + 1] * 4294967295;
+                data[ind + 2] = colourMap[colInd + 2] * 4294967295;
+            }
+            else {
+                ind2 = 3 * (int)(fmin(0.999, trail[i][j]) * nColours);
+            
+                for (k=0; k<3; k++) {
+                    data[ind + k] = colourMap[ind2 + k] * 4294967295;
+                }
+            }
+        }
+    }
 }
 
 void initData() {
-    return;
+    int i,j;
+
+    int xc = size_x / 2;
+    int yc = size_y / 2;
+
+    int R = size_y / 4;
+    double r, w = 15;
+
+    for (i = 0; i < size_x; i++) {
+        for (j = 0; j < size_y; j++) {
+            r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
+            trail[i][j] = exp(-pow((r - R) / w, 2));
+        }
+    }
 }
 
 void prepare() {
-    FILE *fp;
-    const char fileName[] = "./shaders/sample.cl";
-    
-    fp = fopen(fileName, "r");
-    if (!fp) {
-        fprintf(stderr, "Failed to load kernel.\n");
-        exit(1);
+    particles = (Particle *)malloc(nParticles * sizeof(Particle));
+
+    trail = (double **)malloc(size_x * sizeof(double *));
+    trailDummy = (double **)malloc(size_x * sizeof(double *));
+
+    for (int i = 0; i < size_x; i++) {
+        trail[i] = (double *)malloc(size_y * sizeof(double));
+        trailDummy[i] = (double *)malloc(size_y * sizeof(double));
     }
-    source_str = (char *)malloc(MAX_SOURCE_SIZE);
-    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
-    fclose(fp);
-    
-    srand(time(NULL));
-    
+
     initData();
-    
-    /* Get Platform/Device Information */
-    ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
-    ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id, &ret_num_devices);
-
-    /* Create OpenCL Context */
-    context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
-
-    /* Create command queue */
-    command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
-
-    /* Create Buffer Object */
-    mapmobj = clCreateBuffer(context, CL_MEM_READ_WRITE, 3*nColours*sizeof(float), NULL, &ret);
-    datamobj = clCreateBuffer(context, CL_MEM_READ_WRITE, 3*size_x*size_y*sizeof(unsigned int), NULL, &ret);
-
-    /* Create kernel program from source file*/
-    program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
-    ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
-    
-    size_t len = 10000;
-    ret = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
-    char *buffer = (char *)calloc(len, sizeof(char));
-    ret = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, len, buffer, NULL);
-    fprintf(stderr, "%s\n", buffer);
-
-    /* Create data parallel OpenCL kernel */
-    kernel = clCreateKernel(program, "rdKernel", &ret);
-    setKernelArgs();
 }
 
 void cleanup() {
     /* Finalization */
-    ret = clFlush(command_queue);
-    ret = clFinish(command_queue);
-    ret = clReleaseKernel(kernel);
-    ret = clReleaseProgram(program);
-    
-    ret = clReleaseMemObject(mapmobj);
-    ret = clReleaseMemObject(datamobj);
-    
-    ret = clReleaseCommandQueue(command_queue);
-    ret = clReleaseContext(context);
-
     free(colourMap);
-    
-    free(source_str);
+    free(particles);
+
+    for (int i = 0; i < size_x; i++) {
+        free(trail[i]);
+        free(trailDummy[i]);
+    }
+    free(trail);
+    free(trailDummy);
+}
+
+void diffuse() {
+    int i, j, k, l, km, lm;
+    double conv;
+
+    for (i = 0; i < size_x; i++) {
+        for (j = 0; j < size_y; j++) {
+            conv = 0;
+
+            for (k = -1; k < 2; k++) {
+                km = (i + k + size_x) % size_x;
+                for (l = -1; l < 2; l++) {
+                    lm = (j + l + size_y) % size_y;
+                    conv += trail[km][lm];
+                }
+            }
+
+            trailDummy[i][j] = conv * one_9;
+        }
+    }
+
+    for (i = 0; i < size_x; i++) {
+        for (j = 0; j < size_y; j++) {
+            trail[i][j] = trailDummy[i][j];
+        }
+    }
 }
 
 void step() {
-	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, global_item_size, NULL, 0, NULL, NULL);
-    ret = clEnqueueReadBuffer(command_queue, datamobj, CL_TRUE, 0, 3*size_x*size_y*sizeof(unsigned int), data, 0, NULL, NULL);
+    diffuse();
+    processTrail();
 }
 
 void display() {
@@ -182,7 +194,12 @@ void display() {
     glFlush();
     glutSwapBuffers();
     
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     step();
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    fprintf(stderr, "\rStep time = %.4g      ", time_span.count());
 }
 
 void key_pressed(unsigned char key, int x, int y) {
@@ -196,6 +213,9 @@ void key_pressed(unsigned char key, int x, int y) {
             break;
         case 'r':
             initData();
+            break;
+        case 'b':
+            showColorBar = !showColorBar;
             break;
         case 'q':
         	cleanup();
