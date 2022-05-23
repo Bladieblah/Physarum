@@ -5,6 +5,7 @@
 #include <math.h>
 #include <vector>
 #include <iostream>
+#include <thread>
 
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
@@ -15,10 +16,15 @@
 #include "pcg.hpp"
 
 // Window size
-// #define size_x 1920
-// #define size_y 1080
-#define size_x 3024
-#define size_y 1964
+#define size_x 1920
+#define size_y 1080
+
+// #define size_x 4200
+// #define size_y 2800
+
+// #define size_x 3024
+// #define size_y 1964
+
 // #define size_x 1400
 // #define size_y 801
 
@@ -38,17 +44,19 @@ typedef struct Particle {
     double phi;
 } Particle;
 
-int nParticles = 200000;
-double sensorAngle = 45. / 180. * M_PI;
-double sensorDist = 9;
+int particleThreads = 8;
+int nParticles = 300000;
+int particlesPerThread = nParticles / particleThreads;
+double sensorAngle = 45. / 180. * M_PI / 3.;
+double sensorDist = 20;
 double rotationAngle = 45. / 180. * M_PI / 18.;
-double particleStepSize = 2;
-double depositAmount = 0.04;
-double stableAverage = 0.1;
+double particleStepSize = 3;
+double depositAmount = 0.01;
+double stableAverage = 0.2;
 double decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 double one_9 = 1. / 9. * decay;
 
-Particle *particles;
+Particle **particles;
 double **trail, **trailDummy;
 
 void makeColourmap() {
@@ -130,25 +138,45 @@ double clip(double in, double lower, double upper) {
     return in;
 }
 
-void initParticles() {
+void initParticles(int thread) {
     int i;
     Particle particle;
 
-    for (i = 0; i < nParticles; i++) {
-        particle = particles[i];
+    // Squaretangle
+    // for (i = 0; i < particlesPerThread; i++) {
+    //     particle = particles[thread][i];
 
-        particle.x = clip(0.5 + RANDN() * 0.11999, 0.3, 0.7) * size_x;
-        particle.y = clip(0.5 + RANDN() * 0.11999, 0.3, 0.7) * size_y;
+    //     particle.x = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_x;
+    //     particle.y = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_y;
+    //     particle.phi = 2 * M_PI * UNI();
+
+    //     particles[thread][i] = particle;
+    // }
+
+    // Circle
+    for (i = 0; i < particlesPerThread; i++) {
+        particle = particles[thread][i];
+
+        double theta = UNI() * 2 * M_PI;
+        double rad = (RANDN() / 16. + 0.25);
+
+        particle.x = clip(cos(theta) * rad * size_y + 0.5 * size_x, 0., size_x);
+        particle.y = clip(sin(theta) * rad * size_y + 0.5 * size_y, 0., size_y);
         particle.phi = 2 * M_PI * UNI();
 
-        particles[i] = particle;
+        particles[thread][i] = particle;
     }
 }
 
 void prepare() {
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
-    particles = (Particle *)malloc(nParticles * sizeof(Particle));
+    particles = (Particle **)malloc(particleThreads * sizeof(Particle *));
+
+    for (int i = 0; i < particleThreads; i++) {
+        particles[i] = (Particle *)malloc(particlesPerThread * sizeof(Particle));
+        initParticles(i);
+    }
 
     trail = (double **)malloc(size_x * sizeof(double *));
     trailDummy = (double **)malloc(size_x * sizeof(double *));
@@ -159,12 +187,15 @@ void prepare() {
     }
 
     initData();
-    initParticles();
 }
 
 void cleanup() {
     /* Finalization */
     free(colourMap);
+
+    for (int i = 0; i < particleThreads; i++) {
+        free(particles[i]);
+    }
     free(particles);
 
     for (int i = 0; i < size_x; i++) {
@@ -179,7 +210,7 @@ void moveParticle(Particle *particle) {
     double fl, fc, fr;
     double flx, fly, fcx, fcy, frx, fry;
 
-    // if (UNI() < 1.5) {
+    if (UNI() < 0.99) {
         flx = particle->x + cos(particle->phi - sensorAngle) * sensorDist;
         fly = particle->y + sin(particle->phi - sensorAngle) * sensorDist;
 
@@ -202,10 +233,10 @@ void moveParticle(Particle *particle) {
         else if (fl < fc && fc < fr) {
             particle->phi += rotationAngle;
         }
-    // }
-    // else {
-    //     particle->phi += rotationAngle * (UNI() > 0.5 ? 1 : -1);
-    // }
+    }
+    else {
+        particle->phi += 10 * rotationAngle * (UNI() > 0.5 ? 1 : -1);
+    }
 
     particle->x += cos(particle->phi) * particleStepSize;
     particle->y += sin(particle->phi) * particleStepSize;
@@ -225,19 +256,41 @@ void moveParticle(Particle *particle) {
     }
 }
 
-void iterParticles() {
+void moveParticles(int thread) {
     int i;
 
-    for (i = 0; i < nParticles; i++) {
-        // std::cout << "phi: " << particles[i].phi << " y: " << particles[i].y << " // ";
-        moveParticle(&(particles[i]));
-        // std::cout << "phi: " << particles[i].phi << " y: " << particles[i].y << std::endl;
+    for (i = 0; i < particlesPerThread; i++) {
+        moveParticle(&(particles[thread][i]));
     }
+}
 
-    for (i = 0; i < nParticles; i++) {
-        // Deposit
-        trail[(int)particles[i].x][(int)particles[i].y] += depositAmount;
+void depositStuff(int thread) {
+    int i;
+
+    for (i = 0; i < particlesPerThread; i++) {
+        trail[(int)particles[thread][i].x][(int)particles[thread][i].y] += depositAmount;
     }
+}
+
+void iterParticles() {
+    int i;
+	std::thread *tt = new std::thread[particleThreads - 1];
+
+    for (i = 0; i < particleThreads - 1; i++) {
+		tt[i] = std::thread(moveParticles, i);
+	}
+	moveParticles(particleThreads - 1);
+	for (i = 0; i < particleThreads - 1; ++i) {
+		tt[i].join();
+	}
+
+    for (i = 0; i < particleThreads - 1; i++) {
+		tt[i] = std::thread(depositStuff, i);
+	}
+	depositStuff(particleThreads - 1);
+	for (i = 0; i < particleThreads - 1; ++i) {
+		tt[i].join();
+	}
 }
 
 void diffuse() {
@@ -323,7 +376,9 @@ void key_pressed(unsigned char key, int x, int y) {
             initData();
             break;
         case 'i':
-            initParticles();
+            for (int i = 0; i < particleThreads; i++){
+                initParticles(i);
+            }
             break;
         case 'b':
             showColorBar = !showColorBar;
