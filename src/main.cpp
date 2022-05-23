@@ -19,45 +19,67 @@
 #define size_x 1920
 #define size_y 1080
 
-// #define size_x 4200
-// #define size_y 2800
+// #define size_x 6048
+// #define size_y 3928
 
 // #define size_x 3024
 // #define size_y 1964
 
 // #define size_x 1400
-// #define size_y 801
+// #define size_y 802
+
+int windowW = size_x;
+int windowH = size_y;
 
 double size_x_inv = 1. / size_x;
 double size_y_inv = 1. / size_y;
 
 bool showColorBar = false;
+bool recording = false;
 
 // Array to be drawn
 unsigned int data[size_y*size_x*3];
 
 float *colourMap;
-int nColours = 255;
+int nColours = 765;
 
 typedef struct Particle {
     double x, y;
     double phi;
+    double velocity;
 } Particle;
 
 int particleThreads = 8;
-int nParticles = 300000;
+
+int nParticles = 720000;
 int particlesPerThread = nParticles / particleThreads;
-double sensorAngle = 45. / 180. * M_PI / 3.;
+
+// Firey
+double sensorAngle = 45. / 180. * M_PI / 8.;
 double sensorDist = 20;
 double rotationAngle = 45. / 180. * M_PI / 18.;
-double particleStepSize = 3;
-double depositAmount = 0.01;
+double particleStepSize = 9;
+double depositAmount = 0.05;
 double stableAverage = 0.2;
+
+// Firey
+// double sensorAngle = 45. / 180. * M_PI / 2.;
+// double sensorDist = 10;
+// double rotationAngle = -45. / 180. * M_PI / 6.;
+// double particleStepSize = 2;
+// double depositAmount = 0.1;
+// double stableAverage = 0.3;
+
 double decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 double one_9 = 1. / 9. * decay;
 
 Particle **particles;
 double **trail, **trailDummy;
+
+// For recording
+char cmd[200];
+FILE* ffmpeg;
+int* buffer;
 
 void makeColourmap() {
     // std::vector<float> x = {0., 0.2, 0.4, 0.7, 1.};
@@ -69,17 +91,67 @@ void makeColourmap() {
     //     {241, 249, 244}
     // };
 
-    std::vector<float> x = {0., 1.};
+    std::vector<float> x = {0.000, 0.032, 0.065, 0.097, 0.129, 0.161, 0.194, 0.226, 0.258, 0.290, 0.323, 0.355, 0.387, 0.419, 0.452, 0.484, 0.516, 0.548, 0.581, 0.613, 0.645, 0.677, 0.710, 0.742, 0.774, 0.806, 0.839, 0.871, 0.903, 0.935, 0.968, 1.000};
     std::vector< std::vector<float> > y = {
-        {0,0,0},
-        {255,255,255}
+        {0,0,3},
+        {3,2,18},
+        {10,7,35},
+        {20,11,54},
+        {34,11,76},
+        {48,10,92},
+        {62,9,102},
+        {75,12,107},
+        {90,17,109},
+        {102,21,110},
+        {115,26,109},
+        {128,31,107},
+        {142,36,104},
+        {155,40,100},
+        {167,45,95},
+        {180,51,88},
+        {193,58,80},
+        {204,65,72},
+        {214,74,63},
+        {223,84,54},
+        {232,97,43},
+        {239,109,33},
+        {244,122,22},
+        {248,136,12},
+        {251,153,6},
+        {251,168,13},
+        {251,183,28},
+        {249,199,47},
+        {245,217,72},
+        {241,232,100},
+        {242,244,133},
+        {252,254,164},
     };
+
+    // std::vector<float> x = {0., 1.};
+    // std::vector< std::vector<float> > y = {
+    //     {0,0,0},
+    //     {255,255,255}
+    // };
 
     Colour col(x, y, nColours);
     
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
     
     col.apply(colourMap);
+}
+
+double sigmoid(double x) {
+    return 1. / (1. + exp(-x));
+}
+
+double rescaleFactor = sqrt(0.7) / sigmoid(0.7);
+
+double rescaleTrail(double x) {
+    if (x < 0.7) {
+        return sqrt(x);
+    }
+
+    return sigmoid(x) * rescaleFactor;
 }
 
 void processTrail() {
@@ -96,7 +168,7 @@ void processTrail() {
                 data[ind + 2] = colourMap[colInd + 2] * 4294967295;
             }
             else {
-                ind2 = 3 * (int)(fmin(0.999, trail[i][j]) * nColours);
+                ind2 = 3 * (int)(fmin(0.999, rescaleTrail(trail[i][j])) * nColours);
             
                 for (k=0; k<3; k++) {
                     data[ind + k] = colourMap[ind2 + k] * 4294967295;
@@ -122,7 +194,8 @@ void initData() {
         for (j = 0; j < size_y; j++) {
             r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
             // trail[i][j] = fmin(1., exp(-pow((r - R) / w, 2)) + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
-            trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
+            // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
+            trail[i][j] = 0;
         }
     }
 }
@@ -154,15 +227,19 @@ void initParticles(int thread) {
     // }
 
     // Circle
+
+    double xc = size_x * 0.5;
+    double yc = size_y * 0.5;
     for (i = 0; i < particlesPerThread; i++) {
         particle = particles[thread][i];
 
         double theta = UNI() * 2 * M_PI;
-        double rad = (RANDN() / 16. + 0.25);
+        double rad = (RANDN() / 32. + 0.25);
 
-        particle.x = clip(cos(theta) * rad * size_y + 0.5 * size_x, 0., size_x);
-        particle.y = clip(sin(theta) * rad * size_y + 0.5 * size_y, 0., size_y);
-        particle.phi = 2 * M_PI * UNI();
+        particle.x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
+        particle.y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
+        particle.phi = atan2(yc - particle.y, xc - particle.x);
+        particle.velocity = UNI() * particleStepSize + 1;
 
         particles[thread][i] = particle;
     }
@@ -238,8 +315,8 @@ void moveParticle(Particle *particle) {
         particle->phi += 10 * rotationAngle * (UNI() > 0.5 ? 1 : -1);
     }
 
-    particle->x += cos(particle->phi) * particleStepSize;
-    particle->y += sin(particle->phi) * particleStepSize;
+    particle->x += cos(particle->phi) * particle->velocity;
+    particle->y += sin(particle->phi) * particle->velocity;
 
     if (particle->x < 0) {
         particle->x += size_x;
@@ -353,6 +430,11 @@ void display() {
 
     glFlush();
     glutSwapBuffers();
+
+    if (recording) {
+        glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
+    }
     
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     step();
@@ -386,6 +468,10 @@ void key_pressed(unsigned char key, int x, int y) {
         case 'q':
         	cleanup();
         	fprintf(stderr, "\n");
+
+            if (recording)
+                pclose(ffmpeg);
+            
             exit(0);
             break;
         default:
@@ -393,21 +479,54 @@ void key_pressed(unsigned char key, int x, int y) {
     }
 }
 
+void reshape(int w, int h)
+{
+    windowW = w;
+    windowH = h;
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+    // if (recording)
+    glViewport(0, 0, w, h);
+    
+	glMatrixMode(GL_MODELVIEW);
+
+    fprintf(stderr, "w, h = %d, %d\n", w, h);
+}
+
+void setupRecording() {
+    // start ffmpeg telling it to expect raw rgba 720p-60hz frames
+    // -i - tells it to read frames from stdin
+    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", 1512, 916);
+    // open pipe to ffmpeg's stdin in binary write mode
+    ffmpeg = popen(cmd, "w");
+    buffer = new int[1512*916];
+}
+
 int main(int argc, char **argv) {
-    // std::cout << fmod(-1, size_x) << std::endl;
-    fprintf(stderr, "Decay = %.4f\n", decay);
+    if (argc > 1) {
+        if (strcmp(argv[1], "-s") == 0) {
+            recording = true;
+        }
+    }
+
     prepare();
     makeColourmap();
+
+    if (recording)
+        setupRecording();
     
 	glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
     glutInitWindowSize( size_x, size_y );
-    glutCreateWindow( "Hello World" );
+    glutCreateWindow( "Physarum" );
     glutDisplayFunc( display );
     
     glutDisplayFunc(&display);
-//     glutIdleFunc(&display);
+    glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
+    glutReshapeFunc(&reshape);
     
     glutMainLoop();
 
