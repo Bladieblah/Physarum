@@ -54,13 +54,37 @@ int particleThreads = 8;
 int nParticles = 720000;
 int particlesPerThread = nParticles / particleThreads;
 
-// Firey
+// Idk
 double sensorAngle = 45. / 180. * M_PI / 8.;
 double sensorDist = 20;
 double rotationAngle = 45. / 180. * M_PI / 18.;
-double particleStepSize = 9;
-double depositAmount = 0.05;
+double particleStepSize = 2;
+double depositAmount = 0.01;
 double stableAverage = 0.2;
+
+// Ropey
+// double sensorAngle = 45. / 180. * M_PI / 8.;
+// double sensorDist = 20;
+// double rotationAngle = 45. / 180. * M_PI / 18.;
+// double particleStepSize = 2;
+// double depositAmount = 0.01;
+// double stableAverage = 0.2;
+
+// Supernova
+// double sensorAngle = -45. / 180. * M_PI / 80.;
+// double sensorDist = 200;
+// double rotationAngle = 45. / 180. * M_PI / 180.;
+// double particleStepSize = 2;
+// double depositAmount = 0.001;
+// double stableAverage = 0.2;
+
+// Stringy
+// double sensorAngle = 45. / 180. * M_PI / 8.;
+// double sensorDist = 20;
+// double rotationAngle = 45. / 180. * M_PI / 18.;
+// double particleStepSize = 9;
+// double depositAmount = 0.01;
+// double stableAverage = 0.2;
 
 // Firey
 // double sensorAngle = 45. / 180. * M_PI / 2.;
@@ -227,7 +251,6 @@ void initParticles(int thread) {
     // }
 
     // Circle
-
     double xc = size_x * 0.5;
     double yc = size_y * 0.5;
     for (i = 0; i < particlesPerThread; i++) {
