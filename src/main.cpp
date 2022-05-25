@@ -55,12 +55,76 @@ int nParticles = 720000;
 int particlesPerThread = nParticles / particleThreads;
 
 // Idk
-double sensorAngle = 45. / 180. * M_PI / 8.;
-double sensorDist = 20;
-double rotationAngle = 45. / 180. * M_PI / 18.;
-double particleStepSize = 2;
-double depositAmount = 0.01;
-double stableAverage = 0.2;
+// double sensorAngle = 45. / 180. * M_PI / 80.;
+// double sensorDist = 80;
+// double rotationAngle = 45. / 180. * M_PI / 18.;
+// double particleStepSize = 2;
+// double depositAmount = 0.05;
+// double stableAverage = 0.3;
+
+// Road network! omg
+double sensorAngle = 0.4732;
+double sensorDist = 26.3819;
+double rotationAngle = 0.1338;
+double particleStepSize = 5.1793;
+double depositAmount = 0.0196;
+double stableAverage = 0.2868;
+
+// Cloudy bu stringy??
+// sensorAngle = 0.5298;
+// sensorDist = 87.6185;
+// rotationAngle = 2.6770;
+// particleStepSize = 4.1530;
+// depositAmount = 0.1068;
+// stableAverage = 0.1107;
+
+// City Grid
+// sensorAngle = 0.0474;
+// sensorDist = 14.9574;
+// rotationAngle = 0.2148;
+// particleStepSize = 2.4507;
+// depositAmount = 0.0284;
+// stableAverage = 0.1357;
+
+// Double highway
+// sensorAngle = 1.0376;
+// sensorDist = 40.5436;
+// rotationAngle = 0.1885;
+// particleStepSize = 8.7137;
+// depositAmount = 0.0571;
+// stableAverage = 0.1194;
+
+// Double highway with spikes
+// sensorAngle = 1.3826;
+// sensorDist = 40.6530;
+// rotationAngle = 0.1500;
+// particleStepSize = 6.9252;
+// depositAmount = 0.0293;
+// stableAverage = 0.1493;
+
+// Close to clouds  
+// sensorAngle = 0.1721;
+// sensorDist = 108.5649;
+// rotationAngle = 2.8536;
+// particleStepSize = 4.3918;
+// depositAmount = 0.0206;
+// stableAverage = 0.2866;
+
+// Spoopy
+// sensorAngle = 0.3596;
+// sensorDist = 158.0992;
+// rotationAngle = 0.2333;
+// particleStepSize = 6.0674;
+// depositAmount = 0.0099;
+// stableAverage = 0.3276;
+
+// Gridsss
+// sensorAngle = 0.5191;
+// sensorDist = 29.3579;
+// rotationAngle = 0.4350;
+// particleStepSize = 8.8227;
+// depositAmount = 0.2609;
+// stableAverage = 0.3571;
 
 // Ropey
 // double sensorAngle = 45. / 180. * M_PI / 8.;
@@ -106,17 +170,17 @@ FILE* ffmpeg;
 int* buffer;
 
 void makeColourmap() {
-    // std::vector<float> x = {0., 0.2, 0.4, 0.7, 1.};
-    // std::vector< std::vector<float> > y = {
-    //     {26,17,36},
-    //     {33,130,133},
-    //     {26,17,36},
-    //     {200,40,187},
-    //     {241, 249, 244}
-    // };
+    std::vector<float> x_d = {0., 0.2, 0.4, 0.7, 1.};
+    std::vector< std::vector<float> > y_d = {
+        {26,17,36},
+        {33,130,133},
+        {26,17,36},
+        {200,40,187},
+        {241, 249, 244}
+    };
 
-    std::vector<float> x = {0.000, 0.032, 0.065, 0.097, 0.129, 0.161, 0.194, 0.226, 0.258, 0.290, 0.323, 0.355, 0.387, 0.419, 0.452, 0.484, 0.516, 0.548, 0.581, 0.613, 0.645, 0.677, 0.710, 0.742, 0.774, 0.806, 0.839, 0.871, 0.903, 0.935, 0.968, 1.000};
-    std::vector< std::vector<float> > y = {
+    std::vector<float> x_i = {0.000, 0.032, 0.065, 0.097, 0.129, 0.161, 0.194, 0.226, 0.258, 0.290, 0.323, 0.355, 0.387, 0.419, 0.452, 0.484, 0.516, 0.548, 0.581, 0.613, 0.645, 0.677, 0.710, 0.742, 0.774, 0.806, 0.839, 0.871, 0.903, 0.935, 0.968, 1.000};
+    std::vector< std::vector<float> > y_i = {
         {0,0,3},
         {3,2,18},
         {10,7,35},
@@ -151,13 +215,13 @@ void makeColourmap() {
         {252,254,164},
     };
 
-    // std::vector<float> x = {0., 1.};
-    // std::vector< std::vector<float> > y = {
-    //     {0,0,0},
-    //     {255,255,255}
-    // };
+    std::vector<float> x_w = {0., 1.};
+    std::vector< std::vector<float> > y_w = {
+        {0,0,0},
+        {255,255,255}
+    };
 
-    Colour col(x, y, nColours);
+    Colour col(x_i, y_i, nColours);
     
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
     
@@ -169,6 +233,7 @@ double sigmoid(double x) {
 }
 
 double rescaleFactor = sqrt(0.7) / sigmoid(0.7);
+double invsqrt07 = 1. / sqrt(0.7);
 
 double rescaleTrail(double x) {
     if (x < 0.7) {
@@ -176,6 +241,14 @@ double rescaleTrail(double x) {
     }
 
     return sigmoid(x) * rescaleFactor;
+}
+
+double rescaleTrail2(double x) {
+    if (x < 0.7) {
+        return sqrt(x) * invsqrt07;
+    }
+
+    return 0.5 + cos(sqrt(x - 0.7)) * 0.5;
 }
 
 void processTrail() {
@@ -192,7 +265,7 @@ void processTrail() {
                 data[ind + 2] = colourMap[colInd + 2] * 4294967295;
             }
             else {
-                ind2 = 3 * (int)(fmin(0.999, rescaleTrail(trail[i][j])) * nColours);
+                ind2 = 3 * (int)(fmin(0.999, rescaleTrail2(trail[i][j])) * nColours);
             
                 for (k=0; k<3; k++) {
                     data[ind + k] = colourMap[ind2 + k] * 4294967295;
@@ -468,6 +541,21 @@ void display() {
     fprintf(stderr, "\rStep time = %.4g      ", time_span.count());
 }
 
+void randomiseParameters() {
+    sensorAngle = 2 * UNI() * M_PI;
+    sensorDist = UNI() * 200;
+    rotationAngle = 2 * UNI() * M_PI;
+    particleStepSize = UNI() * 10;
+    depositAmount = exp(UNI() * 4 - 5.5);
+    stableAverage = UNI() * 0.3 + 0.1;
+
+    decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
+    one_9 = 1. / 9. * decay;
+
+    fprintf(stderr, "\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
+        sensorAngle, sensorDist, rotationAngle, particleStepSize, depositAmount, stableAverage);
+}
+
 void key_pressed(unsigned char key, int x, int y) {
     switch (key)
     {
@@ -487,6 +575,9 @@ void key_pressed(unsigned char key, int x, int y) {
             break;
         case 'b':
             showColorBar = !showColorBar;
+            break;
+        case 'u':
+            randomiseParameters();
             break;
         case 'q':
         	cleanup();
