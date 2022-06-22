@@ -19,6 +19,12 @@
 #define size_x 1920
 #define size_y 1080
 
+// #define size_x 5120
+// #define size_y 2880
+
+// #define size_x 2560
+// #define size_y 1440
+
 // #define size_x 6048
 // #define size_y 3928
 
@@ -28,8 +34,8 @@
 // #define size_x 1400
 // #define size_y 802
 
-int windowW = size_x;
-int windowH = size_y;
+int windowW = 1920;
+int windowH = 1080;
 
 double size_x_inv = 1. / size_x;
 double size_y_inv = 1. / size_y;
@@ -37,10 +43,14 @@ double size_y_inv = 1. / size_y;
 bool showColorBar = false;
 bool recording = false;
 
+// Cycling colors
+double t = 0;
+
 // Array to be drawn
 unsigned int data[size_y*size_x*3];
 
 float *colourMap;
+float *colourMap2;
 int nColours = 765;
 
 typedef struct Particle {
@@ -49,9 +59,9 @@ typedef struct Particle {
     double velocity;
 } Particle;
 
-int particleThreads = 8;
+int particleThreads = 6;
 
-int nParticles = 720000;
+int nParticles = 200000;
 int particlesPerThread = nParticles / particleThreads;
 
 // Idk
@@ -63,20 +73,20 @@ int particlesPerThread = nParticles / particleThreads;
 // double stableAverage = 0.3;
 
 // Road network! omg
-double sensorAngle = 0.4732;
-double sensorDist = 26.3819;
-double rotationAngle = 0.1338;
-double particleStepSize = 5.1793;
-double depositAmount = 0.0196;
-double stableAverage = 0.2868;
+// double sensorAngle = 0.4732;
+// double sensorDist = 26.3819;
+// double rotationAngle = 0.1338;
+// double particleStepSize = 5.1793;
+// double depositAmount = 0.0196;
+// double stableAverage = 0.2868;
 
 // Cloudy bu stringy??
-// sensorAngle = 0.5298;
-// sensorDist = 87.6185;
-// rotationAngle = 2.6770;
-// particleStepSize = 4.1530;
-// depositAmount = 0.1068;
-// stableAverage = 0.1107;
+// double sensorAngle = 0.5298;
+// double sensorDist = 87.6185;
+// double rotationAngle = 2.6770;
+// double particleStepSize = 4.1530;
+// double depositAmount = 0.1068;
+// double stableAverage = 0.1107;
 
 // City Grid
 // sensorAngle = 0.0474;
@@ -87,12 +97,20 @@ double stableAverage = 0.2868;
 // stableAverage = 0.1357;
 
 // Double highway
-// sensorAngle = 1.0376;
-// sensorDist = 40.5436;
-// rotationAngle = 0.1885;
-// particleStepSize = 8.7137;
-// depositAmount = 0.0571;
-// stableAverage = 0.1194;
+// double sensorAngle = 1.0376;
+// double sensorDist = 40.5436;
+// double rotationAngle = 0.1885;
+// double particleStepSize = 8.7137;
+// double depositAmount = 0.0571;
+// double stableAverage = 0.1194;
+
+// More roads
+double sensorAngle = 0.6659;
+double sensorDist = 52.7099;
+double rotationAngle = 0.3576;
+double particleStepSize = 3.2715;
+double depositAmount = 0.0404;
+double stableAverage = 0.2899;
 
 // Double highway with spikes
 // sensorAngle = 1.3826;
@@ -221,11 +239,36 @@ void makeColourmap() {
         {255,255,255}
     };
 
+    std::vector<float> x_bg = {0., 0.25, 0.5, 0.75, 1.};
+    std::vector< std::vector<float> > y_bg = {
+        {36,35,49},
+        // {29,106,154},
+        // {15,171,179},
+        // {36,153,120},
+        // {65,175,131},
+        {21,190,5},
+    };
+
+    std::vector<float> x_gb = {0., 0.25, 0.5, 0.75, 1.};
+    std::vector< std::vector<float> > y_gb = {
+        {36,35,49},
+        // {44,115,33},
+        // {74,162,37},
+        // {62,121,103},
+        // {43,171,137},
+        {16,185,193},
+    };
+
     Colour col(x_i, y_i, nColours);
+
+    // Colour col(x_w, y_bg, nColours);
+    // Colour col2(x_w, y_gb, nColours);
     
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
+    // colourMap2 = (float *)malloc(3 * nColours * sizeof(float));
     
     col.apply(colourMap);
+    // col2.apply(colourMap2);
 }
 
 double sigmoid(double x) {
@@ -254,6 +297,9 @@ double rescaleTrail2(double x) {
 void processTrail() {
     int i, j, k;
     int ind, ind2;
+
+    double ct2 = pow(cos(t), 2);
+    double st2 = 1 - ct2;
     
     for (i=0; i<size_x; i++) {
         for (j=0; j<size_y; j++) {
@@ -269,6 +315,7 @@ void processTrail() {
             
                 for (k=0; k<3; k++) {
                     data[ind + k] = colourMap[ind2 + k] * 4294967295;
+                    // data[ind + k] = (colourMap[ind2 + k] * ct2 + colourMap2[ind2 + k] * st2) * 4294967295;
                 }
             }
         }
@@ -330,11 +377,11 @@ void initParticles(int thread) {
         particle = particles[thread][i];
 
         double theta = UNI() * 2 * M_PI;
-        double rad = (RANDN() / 32. + 0.25);
+        double rad = (RANDN() / 8. + 0.05);
 
         particle.x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
         particle.y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
-        particle.phi = atan2(yc - particle.y, xc - particle.x);
+        particle.phi = pow(atan2(yc - particle.y, xc - particle.x), 2.) + UNI();
         particle.velocity = UNI() * particleStepSize + 1;
 
         particles[thread][i] = particle;
@@ -415,18 +462,34 @@ void moveParticle(Particle *particle) {
     particle->y += sin(particle->phi) * particle->velocity;
 
     if (particle->x < 0) {
-        particle->x += size_x;
-    }
-    else if (particle->x >= size_x) {
-        particle->x -= size_x;
+        particle->x = -particle->x;
+        particle->phi = M_PI - particle->phi;
+    } else if (particle->x >= size_x) {
+        particle->x = 2 * size_x - particle->x;
+        particle->phi = M_PI - particle->phi;
     }
 
     if (particle->y < 0) {
-        particle->y += size_y;
+        particle->y = -particle->y;
+        particle->phi = -particle->phi;
+    } else if (particle->y >= size_y){
+        particle->y = 2 * size_y - particle->y;
+        particle->phi = -particle->phi;
     }
-    else if (particle->y >= size_y) {
-        particle->y -= size_y;
-    }
+
+    // if (particle->x < 0) {
+    //     particle->x += size_x;
+    // }
+    // else if (particle->x >= size_x) {
+    //     particle->x -= size_x;
+    // }
+
+    // if (particle->y < 0) {
+    //     particle->y += size_y;
+    // }
+    // else if (particle->y >= size_y) {
+    //     particle->y -= size_y;
+    // }
 }
 
 void moveParticles(int thread) {
@@ -494,8 +557,10 @@ void diffuse() {
 }
 
 void step() {
+    // iterParticles();
     iterParticles();
     diffuse();
+    t += 0.0015;
 }
 
 void display() {
@@ -527,9 +592,9 @@ void display() {
     glFlush();
     glutSwapBuffers();
 
-    if (recording) {
-        glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
+    if (recording && t > 0) {
+        glReadPixels(0, 0, windowW, windowH, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        fwrite(buffer, sizeof(int)*windowW*windowH, 1, ffmpeg);
     }
     
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -612,28 +677,20 @@ void reshape(int w, int h)
 void setupRecording() {
     // start ffmpeg telling it to expect raw rgba 720p-60hz frames
     // -i - tells it to read frames from stdin
-    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", 1512, 916);
+    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", windowW, windowH);
     // open pipe to ffmpeg's stdin in binary write mode
     ffmpeg = popen(cmd, "w");
-    buffer = new int[1512*916];
+    buffer = new int[windowW*windowH];
 }
 
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        if (strcmp(argv[1], "-s") == 0) {
-            recording = true;
-        }
-    }
-
     prepare();
-    makeColourmap();
 
-    if (recording)
-        setupRecording();
-    
-	glutInit( &argc, argv );
+    makeColourmap();
+	
+    glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
-    glutInitWindowSize( size_x, size_y );
+    glutInitWindowSize( windowW, windowH );
     glutCreateWindow( "Physarum" );
     glutDisplayFunc( display );
     
@@ -641,6 +698,15 @@ int main(int argc, char **argv) {
     glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "-s") == 0) {
+            recording = true;
+        }
+    }
+
+    if (recording)
+        setupRecording();
     
     glutMainLoop();
 
