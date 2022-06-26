@@ -1,11 +1,12 @@
+#include <iostream>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
-#include <time.h>
-#include <math.h>
-#include <vector>
-#include <iostream>
+#include <string>
 #include <thread>
+#include <time.h>
+#include <vector>
 
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
@@ -14,6 +15,9 @@
 #include "colour.hpp"
 #include "SimplexNoise.hpp"
 #include "pcg.hpp"
+#include "opencl.hpp"
+
+using namespace std;
 
 // Window size
 #define size_x 1920
@@ -31,22 +35,22 @@
 int windowW = size_x;
 int windowH = size_y;
 
-double size_x_inv = 1. / size_x;
-double size_y_inv = 1. / size_y;
+float size_x_inv = 1. / size_x;
+float size_y_inv = 1. / size_y;
 
 bool showColorBar = false;
 bool recording = false;
 
 // Array to be drawn
-unsigned int data[size_y*size_x*3];
+unsigned int pixelData[size_y*size_x*3];
 
 float *colourMap;
 int nColours = 765;
 
 typedef struct Particle {
-    double x, y;
-    double phi;
-    double velocity;
+    float x, y;
+    float phi;
+    float velocity;
 } Particle;
 
 int particleThreads = 8;
@@ -55,20 +59,20 @@ int nParticles = 720000;
 int particlesPerThread = nParticles / particleThreads;
 
 // Idk
-// double sensorAngle = 45. / 180. * M_PI / 80.;
-// double sensorDist = 80;
-// double rotationAngle = 45. / 180. * M_PI / 18.;
-// double particleStepSize = 2;
-// double depositAmount = 0.05;
-// double stableAverage = 0.3;
+// float sensorAngle = 45. / 180. * M_PI / 80.;
+// float sensorDist = 80;
+// float rotationAngle = 45. / 180. * M_PI / 18.;
+// float particleStepSize = 2;
+// float depositAmount = 0.05;
+// float stableAverage = 0.3;
 
 // Road network! omg
-double sensorAngle = 0.4732;
-double sensorDist = 26.3819;
-double rotationAngle = 0.1338;
-double particleStepSize = 5.1793;
-double depositAmount = 0.0196;
-double stableAverage = 0.2868;
+float sensorAngle = 0.4732;
+float sensorDist = 26.3819;
+float rotationAngle = 0.1338;
+float particleStepSize = 5.1793;
+float depositAmount = 0.0196;
+float stableAverage = 0.2868;
 
 // Cloudy bu stringy??
 // sensorAngle = 0.5298;
@@ -86,7 +90,7 @@ double stableAverage = 0.2868;
 // depositAmount = 0.0284;
 // stableAverage = 0.1357;
 
-// Double highway
+// float highway
 // sensorAngle = 1.0376;
 // sensorDist = 40.5436;
 // rotationAngle = 0.1885;
@@ -94,7 +98,7 @@ double stableAverage = 0.2868;
 // depositAmount = 0.0571;
 // stableAverage = 0.1194;
 
-// Double highway with spikes
+// float highway with spikes
 // sensorAngle = 1.3826;
 // sensorDist = 40.6530;
 // rotationAngle = 0.1500;
@@ -127,42 +131,61 @@ double stableAverage = 0.2868;
 // stableAverage = 0.3571;
 
 // Ropey
-// double sensorAngle = 45. / 180. * M_PI / 8.;
-// double sensorDist = 20;
-// double rotationAngle = 45. / 180. * M_PI / 18.;
-// double particleStepSize = 2;
-// double depositAmount = 0.01;
-// double stableAverage = 0.2;
+// float sensorAngle = 45. / 180. * M_PI / 8.;
+// float sensorDist = 20;
+// float rotationAngle = 45. / 180. * M_PI / 18.;
+// float particleStepSize = 2;
+// float depositAmount = 0.01;
+// float stableAverage = 0.2;
 
 // Supernova
-// double sensorAngle = -45. / 180. * M_PI / 80.;
-// double sensorDist = 200;
-// double rotationAngle = 45. / 180. * M_PI / 180.;
-// double particleStepSize = 2;
-// double depositAmount = 0.001;
-// double stableAverage = 0.2;
+// float sensorAngle = -45. / 180. * M_PI / 80.;
+// float sensorDist = 200;
+// float rotationAngle = 45. / 180. * M_PI / 180.;
+// float particleStepSize = 2;
+// float depositAmount = 0.001;
+// float stableAverage = 0.2;
 
 // Stringy
-// double sensorAngle = 45. / 180. * M_PI / 8.;
-// double sensorDist = 20;
-// double rotationAngle = 45. / 180. * M_PI / 18.;
-// double particleStepSize = 9;
-// double depositAmount = 0.01;
-// double stableAverage = 0.2;
+// float sensorAngle = 45. / 180. * M_PI / 8.;
+// float sensorDist = 20;
+// float rotationAngle = 45. / 180. * M_PI / 18.;
+// float particleStepSize = 9;
+// float depositAmount = 0.01;
+// float stableAverage = 0.2;
 
 // Firey
-// double sensorAngle = 45. / 180. * M_PI / 2.;
-// double sensorDist = 10;
-// double rotationAngle = -45. / 180. * M_PI / 6.;
-// double particleStepSize = 2;
-// double depositAmount = 0.1;
-// double stableAverage = 0.3;
+// float sensorAngle = 45. / 180. * M_PI / 2.;
+// float sensorDist = 10;
+// float rotationAngle = -45. / 180. * M_PI / 6.;
+// float particleStepSize = 2;
+// float depositAmount = 0.1;
+// float stableAverage = 0.3;
 
-double decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
-double one_9 = 1. / 9. * decay;
+float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
+float one_9 = 1. / 9. * decayFactor;
 
-Particle **particles;
-double **trail, **trailDummy;
+Particle *particles;
+float *trail;
+
+// OpenCl stuff
+
+OpenCl opencl;
+
+vector<string> bufferNames = {
+    "trail",
+    "particles"
+};
+
+vector<size_t> bufferSizes = {
+    size_x * size_y * sizeof(float),
+    nParticles * sizeof(Particle)
+};
+
+vector<string> kernelNames = {
+    "moveParticles",
+    "diffuse"
+};
 
 // For recording
 char cmd[200];
@@ -215,8 +238,8 @@ void makeColourmap() {
         {252,254,164},
     };
 
-    std::vector<float> x_w = {0., 1.};
-    std::vector< std::vector<float> > y_w = {
+    vector<float> x_w = {0., 1.};
+    vector< vector<float> > y_w = {
         {0,0,0},
         {255,255,255}
     };
@@ -228,14 +251,14 @@ void makeColourmap() {
     col.apply(colourMap);
 }
 
-double sigmoid(double x) {
+float sigmoid(float x) {
     return 1. / (1. + exp(-x));
 }
 
-double rescaleFactor = sqrt(0.7) / sigmoid(0.7);
-double invsqrt07 = 1. / sqrt(0.7);
+float rescaleFactor = sqrt(0.7) / sigmoid(0.7);
+float invsqrt07 = 1. / sqrt(0.7);
 
-double rescaleTrail(double x) {
+float rescaleTrail(float x) {
     if (x < 0.7) {
         return sqrt(x);
     }
@@ -243,7 +266,7 @@ double rescaleTrail(double x) {
     return sigmoid(x) * rescaleFactor;
 }
 
-double rescaleTrail2(double x) {
+float rescaleTrail2(float x) {
     if (x < 0.7) {
         return sqrt(x) * invsqrt07;
     }
@@ -259,45 +282,48 @@ void processTrail() {
         for (j=0; j<size_y; j++) {
             ind = 3 * (size_x * j + i);
             if (showColorBar && i < 70) {
-                int colInd = 3 * (int)(j / (double)size_y * nColours);
-                data[ind + 0] = colourMap[colInd + 0] * 4294967295;
-                data[ind + 1] = colourMap[colInd + 1] * 4294967295;
-                data[ind + 2] = colourMap[colInd + 2] * 4294967295;
+                int colInd = 3 * (int)(j / (float)size_y * nColours);
+                pixelData[ind + 0] = colourMap[colInd + 0] * 4294967295;
+                pixelData[ind + 1] = colourMap[colInd + 1] * 4294967295;
+                pixelData[ind + 2] = colourMap[colInd + 2] * 4294967295;
             }
             else {
-                ind2 = 3 * (int)(fmin(0.999, rescaleTrail2(trail[i][j])) * nColours);
+                ind2 = 3 * (int)(fmin(0.999, rescaleTrail2(trail[ind])) * nColours);
             
                 for (k=0; k<3; k++) {
-                    data[ind + k] = colourMap[ind2 + k] * 4294967295;
+                    pixelData[ind + k] = colourMap[ind2 + k] * 4294967295;
                 }
             }
         }
     }
 }
 
-void initData() {
+void initpixelData() {
     int i,j;
 
     int xc = size_x / 2;
     int yc = size_y / 2;
 
     int R = size_y / 4;
-    double r, w = 5;
+    float r, w = 5;
 
-    double seedx = UNI() * 20 - 10;
-    double seedy = UNI() * 20 - 10;
+    float seedx = UNI() * 20 - 10;
+    float seedy = UNI() * 20 - 10;
+
+    int ind;
 
     for (i = 0; i < size_x; i++) {
         for (j = 0; j < size_y; j++) {
+            ind = size_x * j + i;
             r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
             // trail[i][j] = fmin(1., exp(-pow((r - R) / w, 2)) + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
             // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
-            trail[i][j] = 0;
+            trail[ind] = 0;
         }
     }
 }
 
-double clip(double in, double lower, double upper) {
+float clip(float in, float lower, float upper) {
     if (in < lower) {
         return lower;
     }
@@ -324,13 +350,13 @@ void initParticles(int thread) {
     // }
 
     // Circle
-    double xc = size_x * 0.5;
-    double yc = size_y * 0.5;
+    float xc = size_x * 0.5;
+    float yc = size_y * 0.5;
     for (i = 0; i < particlesPerThread; i++) {
         particle = particles[thread][i];
 
-        double theta = UNI() * 2 * M_PI;
-        double rad = (RANDN() / 32. + 0.25);
+        float theta = UNI() * 2 * M_PI;
+        float rad = (RANDN() / 32. + 0.25);
 
         particle.x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
         particle.y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
@@ -342,46 +368,38 @@ void initParticles(int thread) {
 }
 
 void prepare() {
+    opencl = OpenCl(
+        size_x,
+        size_y,
+        "shaders/physarum.cl",
+        bufferNames,
+        bufferSizes,
+        kernelNames
+    );
+
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
-    particles = (Particle **)malloc(particleThreads * sizeof(Particle *));
+    particles = (Particle *)malloc(nParticles * sizeof(Particle *));
+    trail = (float *)malloc(size_x * size_y * sizeof(float));
 
-    for (int i = 0; i < particleThreads; i++) {
-        particles[i] = (Particle *)malloc(particlesPerThread * sizeof(Particle));
-        initParticles(i);
-    }
+    initpixelData();
 
-    trail = (double **)malloc(size_x * sizeof(double *));
-    trailDummy = (double **)malloc(size_x * sizeof(double *));
-
-    for (int i = 0; i < size_x; i++) {
-        trail[i] = (double *)malloc(size_y * sizeof(double));
-        trailDummy[i] = (double *)malloc(size_y * sizeof(double));
-    }
-
-    initData();
+    opencl.writeBuffer("trail", (void *)trail);
+    opencl.writeBuffer("particles", (void *)particles);
 }
 
 void cleanup() {
     /* Finalization */
     free(colourMap);
-
-    for (int i = 0; i < particleThreads; i++) {
-        free(particles[i]);
-    }
     free(particles);
-
-    for (int i = 0; i < size_x; i++) {
-        free(trail[i]);
-        free(trailDummy[i]);
-    }
     free(trail);
-    free(trailDummy);
+
+    opencl.cleanup();
 }
 
 void moveParticle(Particle *particle) {
-    double fl, fc, fr;
-    double flx, fly, fcx, fcy, frx, fry;
+    float fl, fc, fr;
+    float flx, fly, fcx, fcy, frx, fry;
 
     if (UNI() < 0.99) {
         flx = particle->x + cos(particle->phi - sensorAngle) * sensorDist;
@@ -468,7 +486,7 @@ void iterParticles() {
 
 void diffuse() {
     int i, j, k, l, km, lm;
-    double conv;
+    float conv;
 
     for (i = 0; i < size_x; i++) {
         for (j = 0; j < size_y; j++) {
@@ -514,7 +532,7 @@ void display() {
         0,
         GL_RGB,
         GL_UNSIGNED_INT,
-        &data[0]
+        &pixelData[0]
     );
 
     glBegin(GL_QUADS);
@@ -537,7 +555,7 @@ void display() {
     processTrail();
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     
-    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
     fprintf(stderr, "\rStep time = %.4g      ", time_span.count());
 }
 
@@ -549,8 +567,8 @@ void randomiseParameters() {
     depositAmount = exp(UNI() * 4 - 5.5);
     stableAverage = UNI() * 0.3 + 0.1;
 
-    decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
-    one_9 = 1. / 9. * decay;
+    decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
+    one_9 = 1. / 9. * decayFactor;
 
     fprintf(stderr, "\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
         sensorAngle, sensorDist, rotationAngle, particleStepSize, depositAmount, stableAverage);
@@ -566,7 +584,7 @@ void key_pressed(unsigned char key, int x, int y) {
             glutPostRedisplay();
             break;
         case 'r':
-            initData();
+            initpixelData();
             break;
         case 'i':
             for (int i = 0; i < particleThreads; i++){

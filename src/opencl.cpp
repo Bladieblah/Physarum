@@ -1,3 +1,4 @@
+#include <map>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -77,4 +78,69 @@ void OpenCl::prepare(vector<string> bufferNames, vector<size_t> bufferSizes, vec
         if (ret != CL_SUCCESS)
             fprintf(stderr, "Failed on function clCreateKernel: %d\n", ret);
     }
+}
+
+void OpenCl::setKernelArg(string kernelName, cl_uint arg_index, size_t size, void *pointer) {
+    ret = clSetKernelArg(kernels[kernelName], arg_index, size, pointer);
+}
+void OpenCl::writeBuffer(string name, void *pointer) {
+    ret = clEnqueueWriteBuffer(
+        command_queue,
+        buffers[name].buffer,
+        CL_TRUE,
+        0,
+        buffers[name].size,
+        pointer,
+        0, NULL, NULL
+    );
+    
+    if (ret != CL_SUCCESS) {
+      fprintf(stderr, "Failed writing buffer %s: %d\n", name.c_str(), ret);
+    }
+}
+
+void OpenCl::step(string name) {
+	ret = clEnqueueNDRangeKernel(command_queue, kernels[name], 2, NULL, global_item_size, NULL, 0, NULL, NULL);
+    
+    if (ret != CL_SUCCESS) {
+      fprintf(stderr, "Failed executing kernel %s: %d\n", name.c_str(), ret);
+    }
+}
+
+void OpenCl::readBuffer(string name, void *pointer) {
+    ret = clEnqueueReadBuffer(
+        command_queue,
+        buffers[name].buffer,
+        CL_TRUE,
+        0,
+        buffers[name].size,
+        pointer,
+        0, NULL, NULL
+    );
+    
+    if (ret != CL_SUCCESS) {
+      fprintf(stderr, "Failed reading buffer %s: %d\n", name.c_str(), ret);
+    }
+}
+
+void OpenCl::cleanup() {
+    map<string, cl_kernel>::iterator kernelIter;
+    map<string, OpenClBuffer>::iterator bufferIter;
+    
+    ret = clFlush(command_queue);
+    ret = clFinish(command_queue);
+    ret = clReleaseProgram(program);
+
+    for (kernelIter = kernels.begin(); kernelIter != kernels.end(); kernelIter++) {
+        ret = clReleaseKernel(kernelIter->second);
+    }
+
+    for (bufferIter = buffers.begin(); bufferIter != buffers.end(); bufferIter++) {
+        ret = clReleaseMemObject(bufferIter->second.buffer);
+    }
+    
+    ret = clReleaseCommandQueue(command_queue);
+    ret = clReleaseContext(context);
+    
+    free(source_str);
 }

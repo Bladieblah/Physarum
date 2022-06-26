@@ -23,10 +23,10 @@ class OpenCl {
 public:
     OpenCl(size_t size_x, size_t size_y, char *filename, std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
     void prepare(std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
-    void setKernelArgs();
-    void writeBuffer();
-    void step();
-    void readBuffer();
+    void setKernelArg(std::string kernelName, cl_uint arg_index, size_t size, void *pointer);
+    void writeBuffer(std::string name, void *pointer);
+    void step(std::string name);
+    void readBuffer(std::string name, void *pointer);
     void cleanup();
 
     cl_platform_id platform_id;
@@ -34,10 +34,10 @@ public:
     cl_context context;
     cl_command_queue command_queue;
 
-    std::map<std::string, OpenClBuffer> buffers;
 
     cl_program program;
     std::map<std::string, cl_kernel> kernels;
+    std::map<std::string, OpenClBuffer> buffers;
     cl_uint ret_num_devices;
     cl_uint ret_num_platforms;
     cl_int ret;
