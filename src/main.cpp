@@ -53,7 +53,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-int nParticles = 100000;
+int nParticles = 100;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -304,8 +304,8 @@ void initpixelData() {
     int R = size_y / 4;
     float r, w = 5;
 
-    float seedx = UNI() * 20 - 10;
-    float seedy = UNI() * 20 - 10;
+    // float seedx = UNI() * 20 - 10;
+    // float seedy = UNI() * 20 - 10;
 
     int ind;
 
@@ -365,14 +365,14 @@ void initParticles() {
 }
 
 void prepare() {
-    opencl = new OpenCl(
-        size_x,
-        size_y,
-        "shaders/physarum.cl",
-        bufferNames,
-        bufferSizes,
-        kernelNames
-    );
+    // opencl = new OpenCl(
+    //     size_x,
+    //     size_y,
+    //     "shaders/physarum.cl",
+    //     bufferNames,
+    //     bufferSizes,
+    //     kernelNames
+    // );
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
@@ -381,9 +381,10 @@ void prepare() {
     trailDummy = (float *)malloc(size_x * size_y * sizeof(float));
 
     initpixelData();
+    initParticles();
 
-    opencl->writeBuffer("trail", (void *)trail);
-    opencl->writeBuffer("particles", (void *)particles);
+    // opencl->writeBuffer("trail", (void *)trail);
+    // opencl->writeBuffer("particles", (void *)particles);
 }
 
 void cleanup() {
@@ -393,7 +394,7 @@ void cleanup() {
     free(trail);
     free(trailDummy);
 
-    opencl->cleanup();
+    // opencl->cleanup();
 }
 
 void moveParticle(Particle *particle) {
@@ -410,9 +411,9 @@ void moveParticle(Particle *particle) {
         frx = particle->x + cos(particle->phi + sensorAngle) * sensorDist;
         fry = particle->y + sin(particle->phi + sensorAngle) * sensorDist;
 
-        fl = trail[(int)(flx + size_x) % size_x + size_x * ((int)(fly + size_y) % size_y)];
-        fc = trail[(int)(fcx + size_x) % size_x + size_x * ((int)(fcy + size_y) % size_y)];
-        fr = trail[(int)(frx + size_x) % size_x + size_x * ((int)(fry + size_y) % size_y)];
+        fl = trail[((int)(flx + size_x) % size_x) + size_x * ((int)(fly + size_y) % size_y)];
+        fc = trail[((int)(fcx + size_x) % size_x) + size_x * ((int)(fcy + size_y) % size_y)];
+        fr = trail[((int)(frx + size_x) % size_x) + size_x * ((int)(fry + size_y) % size_y)];
 
         if (fc < fl && fc < fr) {
             particle->phi += rotationAngle * (UNI() > 0.5 ? 1 : -1);
@@ -450,6 +451,7 @@ void moveParticles() {
     int i;
 
     for (i = 0; i < nParticles; i++) {
+        fprintf(stderr, "Move %d: (%d, %d)\n", i, (int)particles[i].x, (int)particles[i].y);
         moveParticle(&(particles[i]));
     }
 }
@@ -458,6 +460,7 @@ void depositStuff() {
     int i;
 
     for (i = 0; i < nParticles; i++) {
+        fprintf(stderr, "Depo %d: (%d, %d)\n", i, (int)particles[i].x, (int)particles[i].y);
         trail[(int)particles[i].x + size_x * ((int)particles[i].y)] += depositAmount;
     }
 }
@@ -465,7 +468,9 @@ void depositStuff() {
 void iterParticles() {
     int i;
 
+    cout << "move" << endl;
 	moveParticles();
+    cout << "depo" << endl;
 	depositStuff();
 }
 
@@ -497,7 +502,9 @@ void diffuse() {
 }
 
 void step() {
+    cout << "iter" << endl;
     iterParticles();
+    cout << "diff" << endl;
     diffuse();
 }
 
@@ -536,7 +543,9 @@ void display() {
     }
     
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    cout << "step" << endl;
     step();
+    cout << "processTrail" << endl;
     processTrail();
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     
@@ -626,23 +635,28 @@ int main(int argc, char **argv) {
         }
     }
 
+    cout << "Preparing" << endl;
     prepare();
+    cout << "makeColourmap" << endl;
     makeColourmap();
 
     if (recording)
         setupRecording();
     
+    cout << "glutInit" << endl;
 	glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
     glutInitWindowSize( size_x, size_y );
     glutCreateWindow( "Physarum" );
     glutDisplayFunc( display );
     
+    cout << "glutDisplayFunc" << endl;
     glutDisplayFunc(&display);
     // glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     
+    cout << "glutMainLoop" << endl;
     glutMainLoop();
 
     return 0;
