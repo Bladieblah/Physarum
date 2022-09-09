@@ -192,6 +192,14 @@ double stableAverage = 0.2899;
 // depositAmount = 0.1714;
 // stableAverage = 0.3403;
 
+// Honingraat
+// sensorAngle = 2.2544;
+// sensorDist = 4.7555;
+// rotationAngle = 4.9923;
+// particleStepSize = 9.2328;
+// depositAmount = 0.2203;
+// stableAverage = 0.3875;
+
 double decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 double one_9 = 1. / 9. * decay;
 
