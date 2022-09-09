@@ -53,7 +53,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-int nParticles = 100;
+int nParticles = 100000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -277,9 +277,11 @@ void processTrail() {
     
     for (i=0; i<size_x; i++) {
         for (j=0; j<size_y; j++) {
-            ind = 3 * (size_x * j + i);
+            ind = (i + size_x * j);
+
             if (showColorBar && i < 70) {
                 int colInd = 3 * (int)(j / (float)size_y * nColours);
+
                 pixelData[ind + 0] = colourMap[colInd + 0] * 4294967295;
                 pixelData[ind + 1] = colourMap[colInd + 1] * 4294967295;
                 pixelData[ind + 2] = colourMap[colInd + 2] * 4294967295;
@@ -288,7 +290,7 @@ void processTrail() {
                 ind2 = 3 * (int)(fmin(0.999, rescaleTrail2(trail[ind])) * nColours);
             
                 for (k=0; k<3; k++) {
-                    pixelData[ind + k] = colourMap[ind2 + k] * 4294967295;
+                    pixelData[3 * ind + k] = colourMap[ind2 + k] * 4294967295;
                 }
             }
         }
@@ -311,11 +313,11 @@ void initpixelData() {
 
     for (i = 0; i < size_x; i++) {
         for (j = 0; j < size_y; j++) {
-            ind = size_x * j + i;
+            ind = i + size_x * j;
             r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
-            // trail[i][j] = fmin(1., exp(-pow((r - R) / w, 2)) + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
+            trail[ind] = fmin(1., exp(-pow((r - R) / w, 2)));// + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
             // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
-            trail[ind] = 0;
+            // trail[ind] = 0;
         }
     }
 }
@@ -349,18 +351,15 @@ void initParticles() {
     // Circle
     float xc = size_x * 0.5;
     float yc = size_y * 0.5;
-    for (i = 0; i < nParticles; i++) {
-        particle = particles[i];
 
+    for (i = 0; i < nParticles; i++) {
         float theta = UNI() * 2 * M_PI;
         float rad = (RANDN() / 32. + 0.25);
 
-        particle.x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
-        particle.y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
-        particle.phi = atan2(yc - particle.y, xc - particle.x);
-        particle.velocity = UNI() * particleStepSize + 1;
-
-        particles[i] = particle;
+        particles[i].x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
+        particles[i].y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
+        particles[i].phi = atan2(yc - particles[i].y, xc - particles[i].x);
+        particles[i].velocity = UNI() * particleStepSize + 1;
     }
 }
 
@@ -376,11 +375,15 @@ void prepare() {
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
-    particles = (Particle *)malloc(nParticles * sizeof(Particle *));
+    particles = (Particle *)malloc(nParticles * sizeof(Particle));
     trail = (float *)malloc(size_x * size_y * sizeof(float));
     trailDummy = (float *)malloc(size_x * size_y * sizeof(float));
 
     initpixelData();
+
+    for (int i = 0; i < nParticles; i++) {
+        particles[i] = Particle();
+    }
     initParticles();
 
     // opencl->writeBuffer("trail", (void *)trail);
@@ -451,7 +454,6 @@ void moveParticles() {
     int i;
 
     for (i = 0; i < nParticles; i++) {
-        fprintf(stderr, "Move %d: (%d, %d)\n", i, (int)particles[i].x, (int)particles[i].y);
         moveParticle(&(particles[i]));
     }
 }
@@ -460,7 +462,6 @@ void depositStuff() {
     int i;
 
     for (i = 0; i < nParticles; i++) {
-        fprintf(stderr, "Depo %d: (%d, %d)\n", i, (int)particles[i].x, (int)particles[i].y);
         trail[(int)particles[i].x + size_x * ((int)particles[i].y)] += depositAmount;
     }
 }
@@ -468,9 +469,7 @@ void depositStuff() {
 void iterParticles() {
     int i;
 
-    cout << "move" << endl;
 	moveParticles();
-    cout << "depo" << endl;
 	depositStuff();
 }
 
@@ -502,10 +501,8 @@ void diffuse() {
 }
 
 void step() {
-    cout << "iter" << endl;
     iterParticles();
-    cout << "diff" << endl;
-    diffuse();
+    // diffuse();
 }
 
 void display() {
@@ -543,9 +540,7 @@ void display() {
     }
     
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    cout << "step" << endl;
     step();
-    cout << "processTrail" << endl;
     processTrail();
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     
@@ -635,28 +630,23 @@ int main(int argc, char **argv) {
         }
     }
 
-    cout << "Preparing" << endl;
     prepare();
-    cout << "makeColourmap" << endl;
     makeColourmap();
 
     if (recording)
         setupRecording();
     
-    cout << "glutInit" << endl;
 	glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
     glutInitWindowSize( size_x, size_y );
     glutCreateWindow( "Physarum" );
     glutDisplayFunc( display );
     
-    cout << "glutDisplayFunc" << endl;
     glutDisplayFunc(&display);
-    // glutIdleFunc(&display);
+    glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     
-    cout << "glutMainLoop" << endl;
     glutMainLoop();
 
     return 0;
