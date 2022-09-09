@@ -176,6 +176,22 @@ double stableAverage = 0.2899;
 // double depositAmount = 0.1;
 // double stableAverage = 0.3;
 
+// semi-cloudy
+// sensorAngle = 5.1340;
+// sensorDist = 8.6095;
+// rotationAngle = 2.4484;
+// particleStepSize = 7.8162;
+// depositAmount = 0.0140;
+// stableAverage = 0.2407;
+
+// Sauron
+// sensorAngle = 4.4548;
+// sensorDist = 45.7309;
+// rotationAngle = 6.1194;
+// particleStepSize = 7.2887;
+// depositAmount = 0.1714;
+// stableAverage = 0.3403;
+
 double decay = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 double one_9 = 1. / 9. * decay;
 
