@@ -53,6 +53,8 @@ void OpenCl::prepare(vector<string> bufferNames, vector<size_t> bufferSizes, vec
     /* Create Buffer Object */
     for (size_t i = 0; i < bufferNames.size(); i++) {
         cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, bufferSizes[i], NULL, &ret);
+        if (ret != CL_SUCCESS)
+            fprintf(stderr, "Failed on function clCreateBuffer for buffer %s: %d\n", bufferNames[i].c_str(), ret);
         this->buffers[bufferNames[i]] = {buffer, bufferSizes[i]};
     }
 
@@ -76,13 +78,23 @@ void OpenCl::prepare(vector<string> bufferNames, vector<size_t> bufferSizes, vec
         kernels[kernelNames[i]] = clCreateKernel(program, kernelNames[i].c_str(), &ret);
 
         if (ret != CL_SUCCESS)
-            fprintf(stderr, "Failed on function clCreateKernel: %d\n", ret);
+            fprintf(stderr, "Failed on function clCreateKernel %s: %d\n", kernelNames[i].c_str(), ret);
     }
 }
 
-void OpenCl::setKernelArg(string kernelName, cl_uint arg_index, size_t size, void *pointer) {
-    ret = clSetKernelArg(kernels[kernelName], arg_index, size, pointer);
+void OpenCl::setKernelArg(string kernelName, cl_uint argIndex, size_t size, void *pointer) {
+    ret = clSetKernelArg(kernels[kernelName], argIndex, size, pointer);
+
+    if (ret != CL_SUCCESS)
+        fprintf(stderr, "Failed setting arg [%d] on kernel [%s]: [%d]\n", argIndex, kernelName.c_str(), ret);
 }
+
+void OpenCl::setKernelBufferArg(string kernelName, string bufferName, int argIndex) {
+    ret = clSetKernelArg(kernels[kernelName], argIndex, sizeof(cl_mem), (void *)&(buffers[bufferName].buffer));
+    if (ret != CL_SUCCESS)
+        fprintf(stderr, "Failed setting buffer [%s] arg [%d] on kernel [%s]: %d\n", bufferName.c_str(), argIndex, kernelName.c_str(), ret);
+}
+
 void OpenCl::writeBuffer(string name, void *pointer) {
     ret = clEnqueueWriteBuffer(
         command_queue,
@@ -95,15 +107,21 @@ void OpenCl::writeBuffer(string name, void *pointer) {
     );
     
     if (ret != CL_SUCCESS) {
-      fprintf(stderr, "Failed writing buffer %s: %d\n", name.c_str(), ret);
+      fprintf(stderr, "Failed writing buffer [%s]: %d\n", name.c_str(), ret);
     }
+}
+
+void OpenCl::swapBuffers(std::string buffer1, std::string buffer2) {
+   cl_mem temp = buffers[buffer1].buffer;
+   buffers[buffer1].buffer = buffers[buffer2].buffer;
+   buffers[buffer2].buffer = temp;
 }
 
 void OpenCl::step(string name) {
 	ret = clEnqueueNDRangeKernel(command_queue, kernels[name], 2, NULL, global_item_size, NULL, 0, NULL, NULL);
     
     if (ret != CL_SUCCESS) {
-      fprintf(stderr, "Failed executing kernel %s: %d\n", name.c_str(), ret);
+      fprintf(stderr, "Failed executing kernel [%s]: %d\n", name.c_str(), ret);
     }
 }
 

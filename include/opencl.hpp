@@ -24,7 +24,9 @@ public:
     OpenCl(size_t size_x, size_t size_y, char *filename, std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
     void prepare(std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
     void setKernelArg(std::string kernelName, cl_uint arg_index, size_t size, void *pointer);
+    void setKernelBufferArg(std::string kernelName, std::string bufferName, int argIndex);
     void writeBuffer(std::string name, void *pointer);
+    void swapBuffers(std::string buffer1, std::string buffer2);
     void step(std::string name);
     void readBuffer(std::string name, void *pointer);
     void cleanup();

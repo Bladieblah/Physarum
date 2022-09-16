@@ -53,7 +53,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-int nParticles = 100000;
+uint32_t nParticles = 100;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -68,7 +68,7 @@ float sensorAngle = 0.4732;
 float sensorDist = 26.3819;
 float rotationAngle = 0.1338;
 float particleStepSize = 5.1793;
-float depositAmount = 0.0196;
+float depositAmount = 0.196;
 float stableAverage = 0.2868;
 
 // Cloudy bu stringy??
@@ -163,7 +163,7 @@ float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x *
 float one_9 = 1. / 9. * decayFactor;
 
 Particle *particles;
-float *trail, *trailDummy;
+float *trail, *trailDummy, *randomList;
 
 // OpenCl stuff
 
@@ -171,17 +171,22 @@ OpenCl *opencl;
 
 vector<string> bufferNames = {
     "trail",
-    "particles"
+    "trailCopy",
+    "particles",
+    "random",
 };
 
 vector<size_t> bufferSizes = {
     size_x * size_y * sizeof(float),
-    nParticles * sizeof(Particle)
+    size_x * size_y * sizeof(float),
+    nParticles * sizeof(Particle),
+    (nParticles + 2) * sizeof(float),
 };
 
 vector<string> kernelNames = {
     "moveParticles",
-    "diffuse"
+    "diffuse",
+    "depositStuff",
 };
 
 // For recording
@@ -274,6 +279,8 @@ float rescaleTrail2(float x) {
 void processTrail() {
     int i, j, k;
     int ind, ind2;
+
+    opencl->readBuffer("trail", (void *)trail);
     
     for (i=0; i<size_x; i++) {
         for (j=0; j<size_y; j++) {
@@ -314,10 +321,10 @@ void initpixelData() {
     for (i = 0; i < size_x; i++) {
         for (j = 0; j < size_y; j++) {
             ind = i + size_x * j;
-            r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
-            trail[ind] = fmin(1., exp(-pow((r - R) / w, 2)));// + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
+            // r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
+            // trail[ind] = fmin(1., exp(-pow((r - R) / w, 2)));// + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
             // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
-            // trail[ind] = 0;
+            trail[ind] = 0;
         }
     }
 }
@@ -335,7 +342,6 @@ float clip(float in, float lower, float upper) {
 
 void initParticles() {
     int i;
-    Particle particle;
 
     // Squaretangle
     // for (i = 0; i < particlesPerThread; i++) {
@@ -363,21 +369,28 @@ void initParticles() {
     }
 }
 
+void fillRandom() {
+    for (int i = 0; i < nParticles + 2; i++) {
+        randomList[i] = UNI();
+    }
+}
+
 void prepare() {
-    // opencl = new OpenCl(
-    //     size_x,
-    //     size_y,
-    //     "shaders/physarum.cl",
-    //     bufferNames,
-    //     bufferSizes,
-    //     kernelNames
-    // );
+    opencl = new OpenCl(
+        size_x,
+        size_y,
+        "shaders/physarum.cl",
+        bufferNames,
+        bufferSizes,
+        kernelNames
+    );
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
     particles = (Particle *)malloc(nParticles * sizeof(Particle));
     trail = (float *)malloc(size_x * size_y * sizeof(float));
     trailDummy = (float *)malloc(size_x * size_y * sizeof(float));
+    randomList = (float *)malloc((nParticles + 2) * sizeof(float));
 
     initpixelData();
 
@@ -385,9 +398,32 @@ void prepare() {
         particles[i] = Particle();
     }
     initParticles();
+    fillRandom();
 
-    // opencl->writeBuffer("trail", (void *)trail);
-    // opencl->writeBuffer("particles", (void *)particles);
+    opencl->writeBuffer("trail", (void *)trail);
+    opencl->writeBuffer("trailCopy", (void *)trail);
+    opencl->writeBuffer("particles", (void *)particles);
+    opencl->writeBuffer("random", (void *)random);
+
+    opencl->setKernelBufferArg("diffuse", "trail", 0);
+    opencl->setKernelBufferArg("diffuse", "trailCopy", 1);
+
+    opencl->setKernelBufferArg("moveParticles", "particles", 0);
+    opencl->setKernelBufferArg("moveParticles", "trail", 1);
+    opencl->setKernelBufferArg("moveParticles", "random", 2);
+
+    int size_x2 = size_x, size_y2 = size_y;
+    opencl->setKernelArg("moveParticles", 3, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("moveParticles", 4, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("moveParticles", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles", 7, sizeof(float), (void *)&rotationAngle);
+
+    opencl->setKernelBufferArg("depositStuff", "particles", 0);
+    opencl->setKernelBufferArg("depositStuff", "trail", 1);
+    opencl->setKernelArg("depositStuff", 2, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("depositStuff", 3, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("depositStuff", 4, sizeof(float), (void *)&depositAmount);
 }
 
 void cleanup() {
@@ -396,73 +432,47 @@ void cleanup() {
     free(particles);
     free(trail);
     free(trailDummy);
+    free(randomList);
 
-    // opencl->cleanup();
-}
-
-void moveParticle(Particle *particle) {
-    float fl, fc, fr;
-    float flx, fly, fcx, fcy, frx, fry;
-
-    if (UNI() < 0.99) {
-        flx = particle->x + cos(particle->phi - sensorAngle) * sensorDist;
-        fly = particle->y + sin(particle->phi - sensorAngle) * sensorDist;
-
-        fcx = particle->x + cos(particle->phi) * sensorDist;
-        fcy = particle->y + sin(particle->phi) * sensorDist;
-
-        frx = particle->x + cos(particle->phi + sensorAngle) * sensorDist;
-        fry = particle->y + sin(particle->phi + sensorAngle) * sensorDist;
-
-        fl = trail[((int)(flx + size_x) % size_x) + size_x * ((int)(fly + size_y) % size_y)];
-        fc = trail[((int)(fcx + size_x) % size_x) + size_x * ((int)(fcy + size_y) % size_y)];
-        fr = trail[((int)(frx + size_x) % size_x) + size_x * ((int)(fry + size_y) % size_y)];
-
-        if (fc < fl && fc < fr) {
-            particle->phi += rotationAngle * (UNI() > 0.5 ? 1 : -1);
-        }
-        else if (fl > fc && fc > fr) {
-            particle->phi -= rotationAngle;
-        }
-        else if (fl < fc && fc < fr) {
-            particle->phi += rotationAngle;
-        }
-    }
-    else {
-        particle->phi += 10 * rotationAngle * (UNI() > 0.5 ? 1 : -1);
-    }
-
-    particle->x += cos(particle->phi) * particle->velocity;
-    particle->y += sin(particle->phi) * particle->velocity;
-
-    if (particle->x < 0) {
-        particle->x += size_x;
-    }
-    else if (particle->x >= size_x) {
-        particle->x -= size_x;
-    }
-
-    if (particle->y < 0) {
-        particle->y += size_y;
-    }
-    else if (particle->y >= size_y) {
-        particle->y -= size_y;
-    }
+    opencl->cleanup();
 }
 
 void moveParticles() {
-    int i;
+    size_t particle_item_size[1] = {nParticles};
 
-    for (i = 0; i < nParticles; i++) {
-        moveParticle(&(particles[i]));
+    opencl->setKernelBufferArg("moveParticles", "trail", 1);
+
+	opencl->ret = clEnqueueNDRangeKernel(
+        opencl->command_queue, 
+        opencl->kernels["moveParticles"], 
+        1, NULL, 
+        particle_item_size, 
+        NULL, 0, NULL, NULL
+    );
+    
+    if (opencl->ret != CL_SUCCESS) {
+      fprintf(stderr, "Failed executing kernel [moveParticles]: %d\n", opencl->ret);
     }
+
+    fillRandom();
+    opencl->writeBuffer("random", (void *)random);
 }
 
 void depositStuff() {
-    int i;
+    size_t particle_item_size[1] = {nParticles};
 
-    for (i = 0; i < nParticles; i++) {
-        trail[(int)particles[i].x + size_x * ((int)particles[i].y)] += depositAmount;
+    opencl->setKernelBufferArg("depositStuff", "trail", 1);
+
+	opencl->ret = clEnqueueNDRangeKernel(
+        opencl->command_queue, 
+        opencl->kernels["depositStuff"], 
+        1, NULL, 
+        particle_item_size, 
+        NULL, 0, NULL, NULL
+    );
+    
+    if (opencl->ret != CL_SUCCESS) {
+      fprintf(stderr, "Failed executing kernel [depositStuff]: %d\n", opencl->ret);
     }
 }
 
@@ -474,35 +484,16 @@ void iterParticles() {
 }
 
 void diffuse() {
-    int i, j, k, l, km, lm;
-    float conv;
+    opencl->step("diffuse");
+    opencl->swapBuffers("trail", "trailCopy");
 
-    for (i = 0; i < size_x; i++) {
-        for (j = 0; j < size_y; j++) {
-            conv = 0;
-
-            for (k = -1; k < 2; k++) {
-                km = (i + k + size_x) % size_x;
-                for (l = -1; l < 2; l++) {
-                    lm = (j + l + size_y) % size_y;
-                    conv += trail[km + size_x * lm];
-                }
-            }
-
-            trailDummy[i + size_x * j] = conv * one_9;
-        }
-    }
-
-    for (i = 0; i < size_x; i++) {
-        for (j = 0; j < size_y; j++) {
-            trail[i + size_x * j] = trailDummy[i + size_x * j];
-        }
-    }
+    opencl->setKernelBufferArg("diffuse", "trail", 0);
+    opencl->setKernelBufferArg("diffuse", "trailCopy", 1);
 }
 
 void step() {
     iterParticles();
-    // diffuse();
+    diffuse();
 }
 
 void display() {
@@ -643,7 +634,7 @@ int main(int argc, char **argv) {
     glutDisplayFunc( display );
     
     glutDisplayFunc(&display);
-    glutIdleFunc(&display);
+    // glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     
