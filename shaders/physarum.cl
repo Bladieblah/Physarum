@@ -1,6 +1,8 @@
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_FILTER_NEAREST | CLK_ADDRESS_REPEAT;
 
-__constant float one_9 = 1./9.;
+__constant float rescaleFactor = 1.25213309998062819936804151;
+__constant float invsqrt07 = 1.19522860933439363996881717;
+__constant float imageLim = 0.999;
 
 typedef struct Particle {
     float x, y;
@@ -8,7 +10,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-__kernel void diffuse(global float *input, global float *output)
+__kernel void diffuse(global float *input, global float *output, float one_9)
 {
 	const int x = get_global_id(0);
 	const int y = get_global_id(1);
@@ -117,4 +119,48 @@ __kernel void depositStuff(
     Particle particle = particles[x];
 
     trail[(int)particle.x + size_x * ((int)particle.y)] += depositAmount;
+}
+
+inline float sigmoid(float x) {
+    return 1. / (1. + exp(-x));
+}
+
+inline float rescaleTrail(float x) {
+    if (x < 0.7) {
+        return sqrt(x);
+    }
+
+    return sigmoid(x) * rescaleFactor;
+}
+
+inline float rescaleTrail2(float x) {
+    if (x < 0.7) {
+        return sqrt(x) * invsqrt07;
+    }
+
+    return 0.5 + cos(sqrt(x - 0.7)) * 0.5;
+}
+
+__kernel void processTrail(
+    global float *trail, 
+    global uint *image, 
+    global float *colourMap,
+    int nColours
+) {
+	const int x = get_global_id(0);
+	const int y = get_global_id(1);
+	
+	const int W = get_global_size(0);
+	const int H = get_global_size(1);
+
+    int ind, ind2;
+
+    ind = (x + W * y);
+
+    float brightness = rescaleTrail2(trail[ind]);
+    ind2 = 3 * (int)(fmin(imageLim, brightness) * nColours);
+
+    for (int k = 0; k < 3; k++) {
+        image[3 * ind + k] = colourMap[ind2 + k] * 4294967295;
+    }
 }

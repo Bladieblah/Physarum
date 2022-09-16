@@ -42,7 +42,7 @@ bool showColorBar = false;
 bool recording = false;
 
 // Array to be drawn
-unsigned int pixelData[size_y*size_x*3];
+uint32_t pixelData[size_y*size_x*3];
 
 float *colourMap;
 int nColours = 765;
@@ -53,7 +53,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 1000000;
+uint32_t nParticles = 5000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -168,12 +168,16 @@ float *trail, *trailDummy, *randomList;
 // OpenCl stuff
 
 OpenCl *opencl;
+uint frameCount = 0;
+uint stepCount = 0;
 
 vector<string> bufferNames = {
     "trail",
     "trailCopy",
     "particles",
     "random",
+    "image",
+    "colourMap",
 };
 
 vector<size_t> bufferSizes = {
@@ -181,12 +185,15 @@ vector<size_t> bufferSizes = {
     size_x * size_y * sizeof(float),
     nParticles * sizeof(Particle),
     (nParticles + 2) * sizeof(float),
+    3 * size_x * size_y * sizeof(uint32_t),
+    3 * nColours * sizeof(float),
 };
 
 vector<string> kernelNames = {
     "moveParticles",
     "diffuse",
     "depositStuff",
+    "processTrail",
 };
 
 // For recording
@@ -253,65 +260,14 @@ void makeColourmap() {
     col.apply(colourMap);
 }
 
-float sigmoid(float x) {
-    return 1. / (1. + exp(-x));
-}
-
-float rescaleFactor = sqrt(0.7) / sigmoid(0.7);
-float invsqrt07 = 1. / sqrt(0.7);
-
-float rescaleTrail(float x) {
-    if (x < 0.7) {
-        return sqrt(x);
-    }
-
-    return sigmoid(x) * rescaleFactor;
-}
-
-float rescaleTrail2(float x) {
-    if (x < 0.7) {
-        return sqrt(x) * invsqrt07;
-    }
-
-    return 0.5 + cos(sqrt(x - 0.7)) * 0.5;
-}
-
-void processTrail() {
-    int i, j, k;
-    int ind, ind2;
-
-    opencl->readBuffer("trail", (void *)trail);
-    
-    for (i=0; i<size_x; i++) {
-        for (j=0; j<size_y; j++) {
-            ind = (i + size_x * j);
-
-            if (showColorBar && i < 70) {
-                int colInd = 3 * (int)(j / (float)size_y * nColours);
-
-                pixelData[ind + 0] = colourMap[colInd + 0] * 4294967295;
-                pixelData[ind + 1] = colourMap[colInd + 1] * 4294967295;
-                pixelData[ind + 2] = colourMap[colInd + 2] * 4294967295;
-            }
-            else {
-                ind2 = 3 * (int)(fmin(0.999, rescaleTrail2(trail[ind])) * nColours);
-            
-                for (k=0; k<3; k++) {
-                    pixelData[3 * ind + k] = colourMap[ind2 + k] * 4294967295;
-                }
-            }
-        }
-    }
-}
-
 void initpixelData() {
-    int i,j;
+    int i, j, k;
 
-    int xc = size_x / 2;
-    int yc = size_y / 2;
+    // int xc = size_x / 2;
+    // int yc = size_y / 2;
 
-    int R = size_y / 4;
-    float r, w = 5;
+    // int R = size_y / 4;
+    // float r, w = 5;
 
     // float seedx = UNI() * 20 - 10;
     // float seedy = UNI() * 20 - 10;
@@ -325,6 +281,9 @@ void initpixelData() {
             // trail[ind] = fmin(1., exp(-pow((r - R) / w, 2)));// + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
             // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
             trail[ind] = 0;
+            for (k = 0; k < 3; k++) {
+                pixelData[3 * ind + k] = 0;
+            }
         }
     }
 }
@@ -375,11 +334,21 @@ void fillRandom() {
     }
 }
 
+void writeBuffers() {
+    opencl->writeBuffer("trail", (void *)trail);
+    opencl->writeBuffer("trailCopy", (void *)trail);
+    opencl->writeBuffer("particles", (void *)particles);
+    opencl->writeBuffer("random", (void *)random);
+    opencl->writeBuffer("image", (void *)pixelData);
+    opencl->writeBuffer("colourMap", (void *)colourMap);
+}
+
 void prepare() {
     opencl = new OpenCl(
         size_x,
         size_y,
         "shaders/physarum.cl",
+        true,
         bufferNames,
         bufferSizes,
         kernelNames
@@ -397,20 +366,29 @@ void prepare() {
     for (int i = 0; i < nParticles; i++) {
         particles[i] = Particle();
     }
+
     initParticles();
     fillRandom();
+    makeColourmap();
 
-    opencl->writeBuffer("trail", (void *)trail);
-    opencl->writeBuffer("trailCopy", (void *)trail);
-    opencl->writeBuffer("particles", (void *)particles);
-    opencl->writeBuffer("random", (void *)random);
+    writeBuffers();
 
+    // Diffuse with dual
     opencl->setKernelBufferArg("diffuse", "trail", 0);
     opencl->setKernelBufferArg("diffuse", "trailCopy", 1);
+    opencl->setKernelArg("diffuse", 2, sizeof(float), (void *)&one_9);
+
+    opencl->setKernelBufferArg("diffuse2", "trailCopy", 0);
+    opencl->setKernelBufferArg("diffuse2", "trail", 1);
+    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
 
     opencl->setKernelBufferArg("moveParticles", "particles", 0);
     opencl->setKernelBufferArg("moveParticles", "trail", 1);
     opencl->setKernelBufferArg("moveParticles", "random", 2);
+
+    opencl->setKernelBufferArg("moveParticles2", "particles", 0);
+    opencl->setKernelBufferArg("moveParticles2", "trailCopy", 1);
+    opencl->setKernelBufferArg("moveParticles2", "random", 2);
 
     int size_x2 = size_x, size_y2 = size_y;
     opencl->setKernelArg("moveParticles", 3, sizeof(int), (void *)&size_x2);
@@ -419,11 +397,33 @@ void prepare() {
     opencl->setKernelArg("moveParticles", 6, sizeof(float), (void *)&sensorDist);
     opencl->setKernelArg("moveParticles", 7, sizeof(float), (void *)&rotationAngle);
 
+    opencl->setKernelArg("moveParticles2", 3, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("moveParticles2", 4, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("moveParticles2", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&rotationAngle);
+
     opencl->setKernelBufferArg("depositStuff", "particles", 0);
     opencl->setKernelBufferArg("depositStuff", "trail", 1);
     opencl->setKernelArg("depositStuff", 2, sizeof(int), (void *)&size_x2);
     opencl->setKernelArg("depositStuff", 3, sizeof(int), (void *)&size_y2);
     opencl->setKernelArg("depositStuff", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelBufferArg("depositStuff2", "particles", 0);
+    opencl->setKernelBufferArg("depositStuff2", "trailCopy", 1);
+    opencl->setKernelArg("depositStuff2", 2, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelBufferArg("processTrail", "trail", 0);
+    opencl->setKernelBufferArg("processTrail", "image", 1);
+    opencl->setKernelBufferArg("processTrail", "colourMap", 2);
+    opencl->setKernelArg("processTrail", 3, sizeof(int), (void *)&nColours);
+
+    opencl->setKernelBufferArg("processTrail2", "trailCopy", 0);
+    opencl->setKernelBufferArg("processTrail2", "image", 1);
+    opencl->setKernelBufferArg("processTrail2", "colourMap", 2);
+    opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&nColours);
 }
 
 void cleanup() {
@@ -440,15 +440,23 @@ void cleanup() {
 void moveParticles() {
     size_t particle_item_size[1] = {nParticles};
 
-    opencl->setKernelBufferArg("moveParticles", "trail", 1);
-
-	opencl->ret = clEnqueueNDRangeKernel(
-        opencl->command_queue, 
-        opencl->kernels["moveParticles"], 
-        1, NULL, 
-        particle_item_size, 
-        NULL, 0, NULL, NULL
-    );
+    if (stepCount % 2 == 0) {
+        opencl->ret = clEnqueueNDRangeKernel(
+            opencl->command_queue, 
+            opencl->kernels["moveParticles"], 
+            1, NULL, 
+            particle_item_size, 
+            NULL, 0, NULL, NULL
+        );
+    } else {
+        opencl->ret = clEnqueueNDRangeKernel(
+            opencl->command_queue, 
+            opencl->kernels["moveParticles2"], 
+            1, NULL, 
+            particle_item_size, 
+            NULL, 0, NULL, NULL
+        );
+    }
     
     if (opencl->ret != CL_SUCCESS) {
       fprintf(stderr, "Failed executing kernel [moveParticles]: %d\n", opencl->ret);
@@ -461,15 +469,23 @@ void moveParticles() {
 void depositStuff() {
     size_t particle_item_size[1] = {nParticles};
 
-    opencl->setKernelBufferArg("depositStuff", "trail", 1);
-
-	opencl->ret = clEnqueueNDRangeKernel(
-        opencl->command_queue, 
-        opencl->kernels["depositStuff"], 
-        1, NULL, 
-        particle_item_size, 
-        NULL, 0, NULL, NULL
-    );
+    if (stepCount % 2 == 0) {
+        opencl->ret = clEnqueueNDRangeKernel(
+            opencl->command_queue, 
+            opencl->kernels["depositStuff"], 
+            1, NULL, 
+            particle_item_size, 
+            NULL, 0, NULL, NULL
+        );
+    } else {
+        opencl->ret = clEnqueueNDRangeKernel(
+            opencl->command_queue, 
+            opencl->kernels["depositStuff2"], 
+            1, NULL, 
+            particle_item_size, 
+            NULL, 0, NULL, NULL
+        );
+    }
     
     if (opencl->ret != CL_SUCCESS) {
       fprintf(stderr, "Failed executing kernel [depositStuff]: %d\n", opencl->ret);
@@ -482,19 +498,33 @@ void iterParticles() {
 }
 
 void diffuse() {
-    opencl->step("diffuse");
-    opencl->swapBuffers("trail", "trailCopy");
+    if (stepCount % 2 == 0) {
+        opencl->step("diffuse");
+    } else {
+        opencl->step("diffuse2");
+    }
+}
 
-    opencl->setKernelBufferArg("diffuse", "trail", 0);
-    opencl->setKernelBufferArg("diffuse", "trailCopy", 1);
+void calculateImage() {
+    if (stepCount % 2 == 0) {
+        opencl->step("processTrail");
+    } else {
+        opencl->step("processTrail2");
+    }
+
+    opencl->readBuffer("image", (void *)&pixelData[0]);
 }
 
 void step() {
     iterParticles();
     diffuse();
+    calculateImage();
+    stepCount++;
 }
 
 void display() {
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
     glClearColor( 0, 0, 0, 1 );
     glClear( GL_COLOR_BUFFER_BIT );
 
@@ -520,21 +550,24 @@ void display() {
         glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
     glEnd();
 
-    glFlush();
+    // glFlush();
     glutSwapBuffers();
 
-    if (recording) {
-        glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
+    if (frameCount % 2 == 0) {
+        if (recording) {
+            glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+            fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
+        }
+        
+        step();
+        
     }
-    
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    step();
-    processTrail();
+
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    
     std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-    fprintf(stderr, "\rStep time = %.4g      ", time_span.count());
+    fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
+
+    frameCount++;
 }
 
 void randomiseParameters() {
@@ -550,6 +583,18 @@ void randomiseParameters() {
 
     fprintf(stderr, "\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
         sensorAngle, sensorDist, rotationAngle, particleStepSize, depositAmount, stableAverage);
+
+    opencl->setKernelArg("diffuse", 2, sizeof(float), (void *)&one_9);
+    opencl->setKernelArg("moveParticles", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles", 7, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("depositStuff", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
+    opencl->setKernelArg("moveParticles2", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
 }
 
 void key_pressed(unsigned char key, int x, int y) {
@@ -620,7 +665,6 @@ int main(int argc, char **argv) {
     }
 
     prepare();
-    makeColourmap();
 
     if (recording)
         setupRecording();
@@ -629,7 +673,6 @@ int main(int argc, char **argv) {
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
     glutInitWindowSize( size_x, size_y );
     glutCreateWindow( "Physarum" );
-    glutDisplayFunc( display );
     
     glutDisplayFunc(&display);
     // glutIdleFunc(&display);

@@ -21,7 +21,7 @@ typedef struct OpenClBuffer {
 
 class OpenCl {
 public:
-    OpenCl(size_t size_x, size_t size_y, char *filename, std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
+    OpenCl(size_t size_x, size_t size_y, char *filename, bool dualKernel, std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
     void prepare(std::vector<std::string> bufferNames, std::vector<size_t> bufferSizes, std::vector<std::string> kernelNames);
     void setKernelArg(std::string kernelName, cl_uint arg_index, size_t size, void *pointer);
     void setKernelBufferArg(std::string kernelName, std::string bufferName, int argIndex);
@@ -52,6 +52,7 @@ public:
     size_t local_item_size[2];
 
     char *filename;
+    bool dualKernel;
 };
 
 

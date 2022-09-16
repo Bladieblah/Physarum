@@ -11,6 +11,7 @@ OpenCl::OpenCl(
     size_t size_x,
     size_t size_y,
     char *filename,
+    bool dualKernel,
     vector<string> bufferNames,
     vector<size_t> bufferSizes, 
     vector<string> kernelNames
@@ -22,6 +23,7 @@ OpenCl::OpenCl(
     this->global_item_size[1] = size_y;
 
     this->filename = filename;
+    this->dualKernel = dualKernel;
     
     this->prepare(bufferNames, bufferSizes, kernelNames);
 }
@@ -79,6 +81,14 @@ void OpenCl::prepare(vector<string> bufferNames, vector<size_t> bufferSizes, vec
 
         if (ret != CL_SUCCESS)
             fprintf(stderr, "Failed on function clCreateKernel %s: %d\n", kernelNames[i].c_str(), ret);
+
+        if (this->dualKernel) {
+            string name = string(kernelNames[i]) + "2";
+            kernels[name] = clCreateKernel(program, kernelNames[i].c_str(), &ret);
+
+            if (ret != CL_SUCCESS)
+                fprintf(stderr, "Failed on function clCreateKernel %s: %d\n", kernelNames[i].c_str(), ret);
+        }
     }
 }
 
