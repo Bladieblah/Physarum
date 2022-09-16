@@ -26,11 +26,11 @@ using namespace std;
 // #define size_x 6048
 // #define size_y 3928
 
-// #define size_x 3024
-// #define size_y 1964
+#define size_x 3024
+#define size_y 1964
 
-#define size_x 1400
-#define size_y 802
+// #define size_x 1400
+// #define size_y 802
 
 int windowW = size_x;
 int windowH = size_y;
@@ -53,7 +53,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 100;
+uint32_t nParticles = 1000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -64,12 +64,12 @@ uint32_t nParticles = 100;
 // float stableAverage = 0.3;
 
 // Road network! omg
-float sensorAngle = 0.4732;
-float sensorDist = 26.3819;
-float rotationAngle = 0.1338;
-float particleStepSize = 5.1793;
-float depositAmount = 0.196;
-float stableAverage = 0.2868;
+// float sensorAngle = 0.4732;
+// float sensorDist = 26.3819;
+// float rotationAngle = 0.1338;
+// float particleStepSize = 5.1793;
+// float depositAmount = 0.0196;
+// float stableAverage = 0.2868;
 
 // Cloudy bu stringy??
 // sensorAngle = 0.5298;
@@ -80,12 +80,12 @@ float stableAverage = 0.2868;
 // stableAverage = 0.1107;
 
 // City Grid
-// sensorAngle = 0.0474;
-// sensorDist = 14.9574;
-// rotationAngle = 0.2148;
-// particleStepSize = 2.4507;
-// depositAmount = 0.0284;
-// stableAverage = 0.1357;
+// float sensorAngle = 0.0474;
+// float sensorDist = 14.9574;
+// float rotationAngle = 0.2148;
+// float particleStepSize = 2.4507;
+// float depositAmount = 0.0284;
+// float stableAverage = 0.1357;
 
 // float highway
 // sensorAngle = 1.0376;
@@ -152,12 +152,12 @@ float stableAverage = 0.2868;
 // float stableAverage = 0.2;
 
 // Firey
-// float sensorAngle = 45. / 180. * M_PI / 2.;
-// float sensorDist = 10;
-// float rotationAngle = -45. / 180. * M_PI / 6.;
-// float particleStepSize = 2;
-// float depositAmount = 0.1;
-// float stableAverage = 0.3;
+float sensorAngle = 45. / 180. * M_PI / 2.;
+float sensorDist = 10;
+float rotationAngle = -45. / 180. * M_PI / 6.;
+float particleStepSize = 2;
+float depositAmount = 0.1;
+float stableAverage = 0.3;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
@@ -477,8 +477,6 @@ void depositStuff() {
 }
 
 void iterParticles() {
-    int i;
-
 	moveParticles();
 	depositStuff();
 }
