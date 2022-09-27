@@ -29,11 +29,17 @@ using namespace std;
 #define size_x 3024
 #define size_y 1964
 
+// #define size_x 5120
+// #define size_y 2880
+
+// #define size_x 2060
+// #define size_y 1440
+
 // #define size_x 1400
 // #define size_y 802
 
-int windowW = size_x;
-int windowH = size_y;
+int windowW = size_x / 2;
+int windowH = size_y / 2;
 
 float size_x_inv = 1. / size_x;
 float size_y_inv = 1. / size_y;
@@ -338,7 +344,7 @@ void writeBuffers() {
     opencl->writeBuffer("trail", (void *)trail);
     opencl->writeBuffer("trailCopy", (void *)trail);
     opencl->writeBuffer("particles", (void *)particles);
-    opencl->writeBuffer("random", (void *)random);
+    opencl->writeBuffer("random", (void *)randomList);
     opencl->writeBuffer("image", (void *)pixelData);
     opencl->writeBuffer("colourMap", (void *)colourMap);
 }
@@ -463,7 +469,7 @@ void moveParticles() {
     }
 
     fillRandom();
-    opencl->writeBuffer("random", (void *)random);
+    opencl->writeBuffer("random", (void *)randomList);
 }
 
 void depositStuff() {
@@ -513,6 +519,7 @@ void calculateImage() {
     }
 
     opencl->readBuffer("image", (void *)&pixelData[0]);
+    opencl->readBuffer("trail", (void *)trail);
 }
 
 void step() {
@@ -523,37 +530,37 @@ void step() {
 }
 
 void display() {
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-
-    glClearColor( 0, 0, 0, 1 );
-    glClear( GL_COLOR_BUFFER_BIT );
-
-    glEnable (GL_TEXTURE_2D);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-    glTexImage2D (
-        GL_TEXTURE_2D,
-        0,
-        GL_RGB,
-        size_x,
-        size_y,
-        0,
-        GL_RGB,
-        GL_UNSIGNED_INT,
-        &pixelData[0]
-    );
-
-    glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f( 1.0, -1.0);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f( 1.0,  1.0);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
-    glEnd();
-
-    // glFlush();
-    glutSwapBuffers();
-
     if (frameCount % 2 == 0) {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+        glClearColor( 0, 0, 0, 1 );
+        glClear( GL_COLOR_BUFFER_BIT );
+
+        glEnable (GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+        glTexImage2D (
+            GL_TEXTURE_2D,
+            0,
+            GL_RGB,
+            size_x,
+            size_y,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_INT,
+            &pixelData[0]
+        );
+
+        glBegin(GL_QUADS);
+            glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);
+            glTexCoord2f(1.0f, 0.0f); glVertex2f( 1.0, -1.0);
+            glTexCoord2f(1.0f, 1.0f); glVertex2f( 1.0,  1.0);
+            glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
+        glEnd();
+
+        // glFlush();
+        glutSwapBuffers();
+
         if (recording) {
             glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
             fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
@@ -561,11 +568,12 @@ void display() {
         
         step();
         
-    }
 
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-    fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
+        fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount / 2, time_span.count());
+
+    }
 
     frameCount++;
 }
