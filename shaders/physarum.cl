@@ -55,33 +55,33 @@ __kernel void moveParticles(
 
     Particle particle = particles[x];
 
-    if (random[x] < 0.99) {
-        flx = particle.x + cos(particle.phi - sensorAngle) * sensorDist;
-        fly = particle.y + sin(particle.phi - sensorAngle) * sensorDist;
+    // if (random[x] < 0.99) {
+    flx = particle.x + cos(particle.phi - sensorAngle) * sensorDist;
+    fly = particle.y + sin(particle.phi - sensorAngle) * sensorDist;
 
-        fcx = particle.x + cos(particle.phi) * sensorDist;
-        fcy = particle.y + sin(particle.phi) * sensorDist;
+    fcx = particle.x + cos(particle.phi) * sensorDist;
+    fcy = particle.y + sin(particle.phi) * sensorDist;
 
-        frx = particle.x + cos(particle.phi + sensorAngle) * sensorDist;
-        fry = particle.y + sin(particle.phi + sensorAngle) * sensorDist;
+    frx = particle.x + cos(particle.phi + sensorAngle) * sensorDist;
+    fry = particle.y + sin(particle.phi + sensorAngle) * sensorDist;
 
-        fl = trail[(int)flx + size_x * (int)fly];
-        fc = trail[(int)fcx + size_x * (int)fcy];
-        fr = trail[(int)frx + size_x * (int)fry];
+    fl = trail[(int)flx + size_x * (int)fly];
+    fc = trail[(int)fcx + size_x * (int)fcy];
+    fr = trail[(int)frx + size_x * (int)fry];
 
-        if (fc < fl && fc < fr) {
-            particle.phi += rotationAngle * (random[x+1] > 0.5 ? 1 : -1);
-        }
-        else if (fl > fc && fc > fr) {
-            particle.phi -= rotationAngle;
-        }
-        else if (fl < fc && fc < fr) {
-            particle.phi += rotationAngle;
-        }
+    if (fc < fl && fc < fr) {
+        particle.phi += rotationAngle * (random[x+1] > 0.5 ? 1 : -1);
     }
-    else {
-        particle.phi += 10 * rotationAngle * (random[x+2] > 0.5 ? 1 : -1);
+    else if (fl > fc && fc > fr) {
+        particle.phi -= rotationAngle;
     }
+    else if (fl < fc && fc < fr) {
+        particle.phi += rotationAngle;
+    }
+    // }
+    // else {
+    //     particle.phi += 10 * rotationAngle * (random[x+2] > 0.5 ? 1 : -1);
+    // }
 
     particle.x += cos(particle.phi) * particle.velocity;
     particle.y += sin(particle.phi) * particle.velocity;

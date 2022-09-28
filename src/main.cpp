@@ -26,8 +26,11 @@ using namespace std;
 // #define size_x 6048
 // #define size_y 3928
 
-#define size_x 3024
-#define size_y 1964
+#define size_x 4536
+#define size_y 2946
+
+// #define size_x 3024
+// #define size_y 1964
 
 // #define size_x 1400
 // #define size_y 802
@@ -53,15 +56,15 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 5000000;
+uint32_t nParticles = 10000000;
 
 // Idk
-// float sensorAngle = 45. / 180. * M_PI / 80.;
-// float sensorDist = 80;
-// float rotationAngle = 45. / 180. * M_PI / 18.;
-// float particleStepSize = 2;
-// float depositAmount = 0.05;
-// float stableAverage = 0.3;
+float sensorAngle = 45. / 180. * M_PI / 80.;
+float sensorDist = 80;
+float rotationAngle = 45. / 180. * M_PI / 18.;
+float particleStepSize = 2;
+float depositAmount = 0.05;
+float stableAverage = 0.3;
 
 // Road network! omg
 // float sensorAngle = 0.4732;
@@ -112,12 +115,12 @@ uint32_t nParticles = 5000000;
 // stableAverage = 0.2866;
 
 // Spoopy
-// sensorAngle = 0.3596;
-// sensorDist = 158.0992;
-// rotationAngle = 0.2333;
-// particleStepSize = 6.0674;
-// depositAmount = 0.0099;
-// stableAverage = 0.3276;
+// float sensorAngle = 0.3596;
+// float sensorDist = 158.0992;
+// float rotationAngle = 0.2333;
+// float particleStepSize = 6.0674;
+// float depositAmount = 0.0099;
+// float stableAverage = 0.3276;
 
 // Gridsss
 // sensorAngle = 0.5191;
@@ -152,12 +155,12 @@ uint32_t nParticles = 5000000;
 // float stableAverage = 0.2;
 
 // Firey
-float sensorAngle = 45. / 180. * M_PI / 2.;
-float sensorDist = 10;
-float rotationAngle = -45. / 180. * M_PI / 6.;
-float particleStepSize = 2;
-float depositAmount = 0.1;
-float stableAverage = 0.3;
+// float sensorAngle = 45. / 180. * M_PI / 2.;
+// float sensorDist = 10;
+// float rotationAngle = -45. / 180. * M_PI / 6.;
+// float particleStepSize = 2;
+// float depositAmount = 0.1;
+// float stableAverage = 0.3;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
@@ -523,37 +526,37 @@ void step() {
 }
 
 void display() {
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-
-    glClearColor( 0, 0, 0, 1 );
-    glClear( GL_COLOR_BUFFER_BIT );
-
-    glEnable (GL_TEXTURE_2D);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-    glTexImage2D (
-        GL_TEXTURE_2D,
-        0,
-        GL_RGB,
-        size_x,
-        size_y,
-        0,
-        GL_RGB,
-        GL_UNSIGNED_INT,
-        &pixelData[0]
-    );
-
-    glBegin(GL_QUADS);
-        glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0f, 0.0f); glVertex2f( 1.0, -1.0);
-        glTexCoord2f(1.0f, 1.0f); glVertex2f( 1.0,  1.0);
-        glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
-    glEnd();
-
-    // glFlush();
-    glutSwapBuffers();
-
     if (frameCount % 2 == 0) {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+        glClearColor( 0, 0, 0, 1 );
+        glClear( GL_COLOR_BUFFER_BIT );
+
+        glEnable (GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+        glTexImage2D (
+            GL_TEXTURE_2D,
+            0,
+            GL_RGB,
+            size_x,
+            size_y,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_INT,
+            &pixelData[0]
+        );
+
+        glBegin(GL_QUADS);
+            glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0, -1.0);
+            glTexCoord2f(1.0f, 0.0f); glVertex2f( 1.0, -1.0);
+            glTexCoord2f(1.0f, 1.0f); glVertex2f( 1.0,  1.0);
+            glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
+        glEnd();
+
+        glFlush();
+        glutSwapBuffers();
+
         if (recording) {
             glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
             fwrite(buffer, sizeof(int)*1512*916, 1, ffmpeg);
@@ -561,11 +564,10 @@ void display() {
         
         step();
         
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
+        fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
     }
-
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-    fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
 
     frameCount++;
 }
@@ -675,7 +677,7 @@ int main(int argc, char **argv) {
     glutCreateWindow( "Physarum" );
     
     glutDisplayFunc(&display);
-    // glutIdleFunc(&display);
+    glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     
