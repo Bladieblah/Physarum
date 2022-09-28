@@ -1,4 +1,4 @@
-__constant sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_FILTER_NEAREST | CLK_ADDRESS_REPEAT;
+__constant sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE | CLK_FILTER_NEAREST | CLK_ADDRESS_NONE;
 
 __constant float rescaleFactor = 1.25213309998062819936804151;
 __constant float invsqrt07 = 1.19522860933439363996881717;
@@ -27,8 +27,21 @@ __kernel void diffuse(global float *input, global float *output, float one_9)
 
     for (k = -1; k < 2; k++) {
         km = x + k;
+
+        if (km == -1) {
+            km = W-1;
+        } else if (km == W) {
+            km = 0;
+        }
         for (l = -1; l < 2; l++) {
             lm = y + l;
+            
+            if (lm == -1) {
+                lm = H-1;
+            } else if (lm == H) {
+                lm = 0;
+            }
+            
             conv += input[km + W * lm];
         }
     }
@@ -112,9 +125,6 @@ __kernel void depositStuff(
 ) {
 	const int x = get_global_id(0);
 	const int nParticles = get_global_size(0);
-	
-    float fl, fc, fr;
-    float flx, fly, fcx, fcy, frx, fry;
 
     Particle particle = particles[x];
 

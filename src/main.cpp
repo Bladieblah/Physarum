@@ -32,11 +32,17 @@ using namespace std;
 // #define size_x 3024
 // #define size_y 1964
 
+// #define size_x 5120
+// #define size_y 2880
+
+// #define size_x 2060
+// #define size_y 1440
+
 // #define size_x 1400
 // #define size_y 802
 
-int windowW = size_x;
-int windowH = size_y;
+int windowW = size_x / 2;
+int windowH = size_y / 2;
 
 float size_x_inv = 1. / size_x;
 float size_y_inv = 1. / size_y;
@@ -341,7 +347,7 @@ void writeBuffers() {
     opencl->writeBuffer("trail", (void *)trail);
     opencl->writeBuffer("trailCopy", (void *)trail);
     opencl->writeBuffer("particles", (void *)particles);
-    opencl->writeBuffer("random", (void *)random);
+    opencl->writeBuffer("random", (void *)randomList);
     opencl->writeBuffer("image", (void *)pixelData);
     opencl->writeBuffer("colourMap", (void *)colourMap);
 }
@@ -466,7 +472,7 @@ void moveParticles() {
     }
 
     fillRandom();
-    opencl->writeBuffer("random", (void *)random);
+    opencl->writeBuffer("random", (void *)randomList);
 }
 
 void depositStuff() {
@@ -516,6 +522,7 @@ void calculateImage() {
     }
 
     opencl->readBuffer("image", (void *)&pixelData[0]);
+    opencl->readBuffer("trail", (void *)trail);
 }
 
 void step() {
@@ -554,7 +561,11 @@ void display() {
             glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
         glEnd();
 
+<<<<<<< HEAD
         glFlush();
+=======
+        // glFlush();
+>>>>>>> da56631317e62512ba791519844d92ce30277874
         glutSwapBuffers();
 
         if (recording) {
@@ -564,11 +575,21 @@ void display() {
         
         step();
         
+<<<<<<< HEAD
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
         fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
     }
 
+=======
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
+        fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount / 2, time_span.count());
+
+    }
+
+>>>>>>> da56631317e62512ba791519844d92ce30277874
     frameCount++;
 }
 
