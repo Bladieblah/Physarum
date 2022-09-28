@@ -561,11 +561,7 @@ void display() {
             glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0,  1.0);
         glEnd();
 
-<<<<<<< HEAD
         glFlush();
-=======
-        // glFlush();
->>>>>>> da56631317e62512ba791519844d92ce30277874
         glutSwapBuffers();
 
         if (recording) {
@@ -574,14 +570,6 @@ void display() {
         }
         
         step();
-        
-<<<<<<< HEAD
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-        fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount, time_span.count());
-    }
-
-=======
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
@@ -589,7 +577,6 @@ void display() {
 
     }
 
->>>>>>> da56631317e62512ba791519844d92ce30277874
     frameCount++;
 }
 
