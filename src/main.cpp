@@ -63,7 +63,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 2000000;
+uint32_t nParticles = 4000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -170,12 +170,12 @@ uint32_t nParticles = 2000000;
 // float stableAverage = 0.3;
 
 // semi-cloudy
-float sensorAngle = 5.1340;
-float sensorDist = 8.6095;
-float rotationAngle = 2.4484;
-float particleStepSize = 7.8162;
-float depositAmount = 0.0140;
-float stableAverage = 0.2407;
+// float sensorAngle = 5.1340;
+// float sensorDist = 8.6095;
+// float rotationAngle = 2.4484;
+// float particleStepSize = 7.8162;
+// float depositAmount = 0.0140;
+// float stableAverage = 0.2407;
 
 // Sauron
 // float sensorAngle = 4.4548;
@@ -192,6 +192,14 @@ float stableAverage = 0.2407;
 // float particleStepSize = 9.2328;
 // float depositAmount = 0.2203;
 // float stableAverage = 0.3875;
+
+// Very dynamic
+float sensorAngle = 5.9553;
+float sensorDist = 197.3020;
+float rotationAngle = 6.2584;
+float particleStepSize = 6.8858;
+float depositAmount = 0.0141;
+float stableAverage = 0.2476;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
@@ -211,6 +219,7 @@ vector<string> bufferNames = {
     "particles",
     "random",
     "image",
+    "image2",
     "colourMap",
 };
 
@@ -219,6 +228,7 @@ vector<size_t> bufferSizes = {
     size_x * size_y * sizeof(float),
     nParticles * sizeof(Particle),
     (nParticles + 2) * sizeof(float),
+    3 * size_x * size_y * sizeof(uint32_t),
     3 * size_x * size_y * sizeof(uint32_t),
     3 * nColours * sizeof(float),
 };
@@ -231,6 +241,7 @@ vector<string> kernelNames = {
     "resetImage",
     "renderParticles",
     "invertImage",
+    "lagImage",
 };
 
 // For recording
@@ -378,6 +389,7 @@ void writeBuffers() {
     opencl->writeBuffer("random", (void *)randomList);
     opencl->writeBuffer("image", (void *)pixelData);
     opencl->writeBuffer("colourMap", (void *)colourMap);
+    opencl->writeBuffer("image2", (void *)pixelData);
 }
 
 void prepare() {
@@ -469,6 +481,9 @@ void prepare() {
     opencl->setKernelArg("renderParticles", 2, sizeof(int), &size_x2);
 
     opencl->setKernelBufferArg("invertImage", "image", 0);
+
+    opencl->setKernelBufferArg("lagImage", "image", 0);
+    opencl->setKernelBufferArg("lagImage", "image2", 1);
 }
 
 void cleanup() {
@@ -559,6 +574,7 @@ void calculateImage() {
         } else {
             opencl->step("processTrail2");
         }
+        opencl->readBuffer("image", (void *)&pixelData[0]);
     } else {
         opencl->step("resetImage");
 
@@ -575,8 +591,9 @@ void calculateImage() {
         }
 
         opencl->step("invertImage");
+        opencl->step("lagImage");
+        opencl->readBuffer("image2", (void *)&pixelData[0]);
     }
-    opencl->readBuffer("image", (void *)&pixelData[0]);
 }
 
 void step() {
@@ -742,7 +759,7 @@ int main(int argc, char **argv) {
     glutCreateWindow( "Physarum" );
     
     glutDisplayFunc(&display);
-    // glutIdleFunc(&display);
+    glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     

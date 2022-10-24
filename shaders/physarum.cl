@@ -217,6 +217,23 @@ __kernel void invertImage(
     int ind = (x + W * y);
 
     for (int k = 0; k < 3; k++) {
-        image[3 * ind + k] = 4294967295 - image[3 * ind + k];
+        image[3 * ind + k] = sqrt((4294967295 - image[3 * ind + k]) / (float)4294967295) * 4294967295;
+    }
+}
+
+__kernel void lagImage(
+    global uint *image,
+    global uint *image2
+) {
+	const int x = get_global_id(0);
+	const int y = get_global_id(1);
+	
+	const int W = get_global_size(0);
+	const int H = get_global_size(1);
+
+    int ind = (x + W * y);
+
+    for (int k = 0; k < 3; k++) {
+        image2[3 * ind + k] = 0.85 * image2[3 * ind + k] + 0.15 * image[3 * ind + k];
     }
 }
