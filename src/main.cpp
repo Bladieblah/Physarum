@@ -26,11 +26,11 @@ using namespace std;
 // #define size_x 6048
 // #define size_y 3928
 
-#define size_x 4536
-#define size_y 2946
+// #define size_x 4536
+// #define size_y 2946
 
-// #define size_x 3024
-// #define size_y 1964
+#define size_x 3024
+#define size_y 1964
 
 // #define size_x 5120
 // #define size_y 2880
@@ -49,6 +49,7 @@ float size_y_inv = 1. / size_y;
 
 bool showColorBar = false;
 bool recording = false;
+bool renderTrail = false;
 
 // Array to be drawn
 uint32_t pixelData[size_y*size_x*3];
@@ -62,15 +63,15 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 10000000;
+uint32_t nParticles = 2000000;
 
 // Idk
-float sensorAngle = 45. / 180. * M_PI / 80.;
-float sensorDist = 80;
-float rotationAngle = 45. / 180. * M_PI / 18.;
-float particleStepSize = 2;
-float depositAmount = 0.05;
-float stableAverage = 0.3;
+// float sensorAngle = 45. / 180. * M_PI / 80.;
+// float sensorDist = 80;
+// float rotationAngle = 45. / 180. * M_PI / 18.;
+// float particleStepSize = 2;
+// float depositAmount = 0.05;
+// float stableAverage = 0.3;
 
 // Road network! omg
 // float sensorAngle = 0.4732;
@@ -81,12 +82,12 @@ float stableAverage = 0.3;
 // float stableAverage = 0.2868;
 
 // Cloudy bu stringy??
-// sensorAngle = 0.5298;
-// sensorDist = 87.6185;
-// rotationAngle = 2.6770;
-// particleStepSize = 4.1530;
-// depositAmount = 0.1068;
-// stableAverage = 0.1107;
+// float sensorAngle = 0.5298;
+// float sensorDist = 87.6185;
+// float rotationAngle = 2.6770;
+// float particleStepSize = 4.1530;
+// float depositAmount = 0.1068;
+// float stableAverage = 0.1107;
 
 // City Grid
 // float sensorAngle = 0.0474;
@@ -96,29 +97,29 @@ float stableAverage = 0.3;
 // float depositAmount = 0.0284;
 // float stableAverage = 0.1357;
 
-// float highway
-// sensorAngle = 1.0376;
-// sensorDist = 40.5436;
-// rotationAngle = 0.1885;
-// particleStepSize = 8.7137;
-// depositAmount = 0.0571;
-// stableAverage = 0.1194;
+// double highway
+// float sensorAngle = 1.0376;
+// float sensorDist = 40.5436;
+// float rotationAngle = 0.1885;
+// float particleStepSize = 8.7137;
+// float depositAmount = 0.0571;
+// float stableAverage = 0.1194;
 
-// float highway with spikes
-// sensorAngle = 1.3826;
-// sensorDist = 40.6530;
-// rotationAngle = 0.1500;
-// particleStepSize = 6.9252;
-// depositAmount = 0.0293;
-// stableAverage = 0.1493;
+// double highway with spikes
+// float sensorAngle = 1.3826;
+// float sensorDist = 40.6530;
+// float rotationAngle = 0.1500;
+// float particleStepSize = 6.9252;
+// float depositAmount = 0.0293;
+// float stableAverage = 0.1493;
 
 // Close to clouds  
-// sensorAngle = 0.1721;
-// sensorDist = 108.5649;
-// rotationAngle = 2.8536;
-// particleStepSize = 4.3918;
-// depositAmount = 0.0206;
-// stableAverage = 0.2866;
+// float sensorAngle = 0.1721;
+// float sensorDist = 108.5649;
+// float rotationAngle = 2.8536;
+// float particleStepSize = 4.3918;
+// float depositAmount = 0.0206;
+// float stableAverage = 0.2866;
 
 // Spoopy
 // float sensorAngle = 0.3596;
@@ -129,12 +130,12 @@ float stableAverage = 0.3;
 // float stableAverage = 0.3276;
 
 // Gridsss
-// sensorAngle = 0.5191;
-// sensorDist = 29.3579;
-// rotationAngle = 0.4350;
-// particleStepSize = 8.8227;
-// depositAmount = 0.2609;
-// stableAverage = 0.3571;
+// float sensorAngle = 0.5191;
+// float sensorDist = 29.3579;
+// float rotationAngle = 0.4350;
+// float particleStepSize = 8.8227;
+// float depositAmount = 0.2609;
+// float stableAverage = 0.3571;
 
 // Ropey
 // float sensorAngle = 45. / 180. * M_PI / 8.;
@@ -167,6 +168,30 @@ float stableAverage = 0.3;
 // float particleStepSize = 2;
 // float depositAmount = 0.1;
 // float stableAverage = 0.3;
+
+// semi-cloudy
+float sensorAngle = 5.1340;
+float sensorDist = 8.6095;
+float rotationAngle = 2.4484;
+float particleStepSize = 7.8162;
+float depositAmount = 0.0140;
+float stableAverage = 0.2407;
+
+// Sauron
+// float sensorAngle = 4.4548;
+// float sensorDist = 45.7309;
+// float rotationAngle = 6.1194;
+// float particleStepSize = 7.2887;
+// float depositAmount = 0.1714;
+// float stableAverage = 0.3403;
+
+// Honingraat
+// float sensorAngle = 2.2544;
+// float sensorDist = 4.7555;
+// float rotationAngle = 4.9923;
+// float particleStepSize = 9.2328;
+// float depositAmount = 0.2203;
+// float stableAverage = 0.3875;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
@@ -203,6 +228,9 @@ vector<string> kernelNames = {
     "diffuse",
     "depositStuff",
     "processTrail",
+    "resetImage",
+    "renderParticles",
+    "invertImage",
 };
 
 // For recording
@@ -433,6 +461,14 @@ void prepare() {
     opencl->setKernelBufferArg("processTrail2", "image", 1);
     opencl->setKernelBufferArg("processTrail2", "colourMap", 2);
     opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&nColours);
+
+    opencl->setKernelBufferArg("resetImage", "image", 0);
+
+    opencl->setKernelBufferArg("renderParticles", "particles", 0);
+    opencl->setKernelBufferArg("renderParticles", "image", 1);
+    opencl->setKernelArg("renderParticles", 2, sizeof(int), &size_x2);
+
+    opencl->setKernelBufferArg("invertImage", "image", 0);
 }
 
 void cleanup() {
@@ -515,14 +551,32 @@ void diffuse() {
 }
 
 void calculateImage() {
-    if (stepCount % 2 == 0) {
-        opencl->step("processTrail");
-    } else {
-        opencl->step("processTrail2");
-    }
+    size_t particle_item_size[1] = {nParticles};
 
+    if (renderTrail) {
+        if (stepCount % 2 == 0) {
+            opencl->step("processTrail");
+        } else {
+            opencl->step("processTrail2");
+        }
+    } else {
+        opencl->step("resetImage");
+
+        opencl->ret = clEnqueueNDRangeKernel(
+            opencl->command_queue, 
+            opencl->kernels["renderParticles"], 
+            1, NULL, 
+            particle_item_size, 
+            NULL, 0, NULL, NULL
+        );
+    
+        if (opencl->ret != CL_SUCCESS) {
+            fprintf(stderr, "Failed executing kernel [renderParticles]: %d\n", opencl->ret);
+        }
+
+        opencl->step("invertImage");
+    }
     opencl->readBuffer("image", (void *)&pixelData[0]);
-    opencl->readBuffer("trail", (void *)trail);
 }
 
 void step() {
@@ -625,6 +679,9 @@ void key_pressed(unsigned char key, int x, int y) {
         case 'b':
             showColorBar = !showColorBar;
             break;
+        case 't':
+            renderTrail = !renderTrail;
+            break;
         case 'u':
             randomiseParameters();
             break;
@@ -685,7 +742,7 @@ int main(int argc, char **argv) {
     glutCreateWindow( "Physarum" );
     
     glutDisplayFunc(&display);
-    glutIdleFunc(&display);
+    // glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
     

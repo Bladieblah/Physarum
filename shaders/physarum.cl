@@ -174,3 +174,49 @@ __kernel void processTrail(
         image[3 * ind + k] = colourMap[ind2 + k] * 4294967295;
     }
 }
+
+__kernel void resetImage(
+    global uint *image
+) {
+	const int x = get_global_id(0);
+	const int y = get_global_id(1);
+	
+	const int W = get_global_size(0);
+	const int H = get_global_size(1);
+
+    int ind = (x + W * y);
+
+    for (int k = 0; k < 3; k++) {
+        image[3 * ind + k] = 4294967295;
+    }
+}
+
+__kernel void renderParticles(
+    global Particle *particles, 
+    global uint *image,
+    int W
+) {
+	const int x = get_global_id(0);
+    Particle particle = particles[x];
+    int ind = ((int)particle.x + W * (int)particle.y);
+
+    for (int k = 0; k < 3; k++) {
+        image[3 * ind + k] *= 0.8;
+    }
+}
+
+__kernel void invertImage(
+    global uint *image
+) {
+	const int x = get_global_id(0);
+	const int y = get_global_id(1);
+	
+	const int W = get_global_size(0);
+	const int H = get_global_size(1);
+
+    int ind = (x + W * y);
+
+    for (int k = 0; k < 3; k++) {
+        image[3 * ind + k] = 4294967295 - image[3 * ind + k];
+    }
+}
