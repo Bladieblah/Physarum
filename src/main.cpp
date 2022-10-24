@@ -113,6 +113,14 @@ uint32_t nParticles = 4000000;
 // float depositAmount = 0.0293;
 // float stableAverage = 0.1493;
 
+// Highway 2
+// float sensorAngle = 5.7312;
+// float sensorDist = 104.3958;
+// float rotationAngle = 5.7027;
+// float particleStepSize = 0.3103;
+// float depositAmount = 0.0625;
+// float stableAverage = 0.2133;
+
 // Close to clouds  
 // float sensorAngle = 0.1721;
 // float sensorDist = 108.5649;
@@ -200,6 +208,14 @@ float rotationAngle = 6.2584;
 float particleStepSize = 6.8858;
 float depositAmount = 0.0141;
 float stableAverage = 0.2476;
+
+// Keeps evolving
+// float sensorAngle = 0.1088;
+// float sensorDist = 179.6908;
+// float rotationAngle = 0.1832;
+// float particleStepSize = 1.5837;
+// float depositAmount = 0.0781;
+// float stableAverage = 0.3475;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;

@@ -99,6 +99,8 @@ __kernel void moveParticles(
     particle.x += cos(particle.phi) * particle.velocity;
     particle.y += sin(particle.phi) * particle.velocity;
 
+    // Periodic boundary
+    /*
     if (particle.x < 0) {
         particle.x += size_x;
     }
@@ -112,6 +114,32 @@ __kernel void moveParticles(
     else if (particle.y >= size_y) {
         particle.y -= size_y;
     }
+    //*/
+
+    // Hard boundary
+    // /*
+    if (particle.x < 0) {
+        particle.x *= -1;
+        // particle.phi = M_PI_2_F - particle.phi;
+        particle.phi = 0;
+    }
+    else if (particle.x >= size_x) {
+        particle.x = 2 * size_x - particle.x;
+        // particle.phi = M_PI_2_F - particle.phi;
+        particle.phi = M_PI_F;
+    }
+
+    if (particle.y < 0) {
+        particle.y *= -1;
+        // particle.phi *= -1;
+        particle.phi = M_PI_2_F;
+    }
+    else if (particle.y >= size_y) {
+        particle.y = 2 * size_y - particle.y;
+        // particle.phi *= -1;
+        particle.phi = -M_PI_2_F;
+    }
+    //*/
 
     particles[x] = particle;
 }
