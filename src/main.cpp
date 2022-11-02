@@ -29,8 +29,8 @@ using namespace std;
 // #define size_x 4536
 // #define size_y 2946
 
-#define size_x 3024
-#define size_y 1964
+// #define size_x 3024
+// #define size_y 1964
 
 // #define size_x 5120
 // #define size_y 2880
@@ -38,8 +38,8 @@ using namespace std;
 // #define size_x 2060
 // #define size_y 1440
 
-// #define size_x 1400
-// #define size_y 802
+#define size_x 1400
+#define size_y 802
 
 int windowW = size_x / 2;
 int windowH = size_y / 2;
@@ -63,7 +63,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 4000000;
+uint32_t nParticles = 2000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -514,28 +514,10 @@ void cleanup() {
 }
 
 void moveParticles() {
-    size_t particle_item_size[1] = {nParticles};
-
     if (stepCount % 2 == 0) {
-        opencl->ret = clEnqueueNDRangeKernel(
-            opencl->command_queue, 
-            opencl->kernels["moveParticles"], 
-            1, NULL, 
-            particle_item_size, 
-            NULL, 0, NULL, NULL
-        );
+        opencl->step("moveParticles", (size_t)nParticles);
     } else {
-        opencl->ret = clEnqueueNDRangeKernel(
-            opencl->command_queue, 
-            opencl->kernels["moveParticles2"], 
-            1, NULL, 
-            particle_item_size, 
-            NULL, 0, NULL, NULL
-        );
-    }
-    
-    if (opencl->ret != CL_SUCCESS) {
-      fprintf(stderr, "Failed executing kernel [moveParticles]: %d\n", opencl->ret);
+        opencl->step("moveParticles2", (size_t)nParticles);
     }
 
     fillRandom();
@@ -543,28 +525,10 @@ void moveParticles() {
 }
 
 void depositStuff() {
-    size_t particle_item_size[1] = {nParticles};
-
     if (stepCount % 2 == 0) {
-        opencl->ret = clEnqueueNDRangeKernel(
-            opencl->command_queue, 
-            opencl->kernels["depositStuff"], 
-            1, NULL, 
-            particle_item_size, 
-            NULL, 0, NULL, NULL
-        );
+        opencl->step("depositStuff", nParticles);
     } else {
-        opencl->ret = clEnqueueNDRangeKernel(
-            opencl->command_queue, 
-            opencl->kernels["depositStuff2"], 
-            1, NULL, 
-            particle_item_size, 
-            NULL, 0, NULL, NULL
-        );
-    }
-    
-    if (opencl->ret != CL_SUCCESS) {
-      fprintf(stderr, "Failed executing kernel [depositStuff]: %d\n", opencl->ret);
+        opencl->step("depositStuff2", nParticles);
     }
 }
 
@@ -593,19 +557,7 @@ void calculateImage() {
         opencl->readBuffer("image", (void *)&pixelData[0]);
     } else {
         opencl->step("resetImage");
-
-        opencl->ret = clEnqueueNDRangeKernel(
-            opencl->command_queue, 
-            opencl->kernels["renderParticles"], 
-            1, NULL, 
-            particle_item_size, 
-            NULL, 0, NULL, NULL
-        );
-    
-        if (opencl->ret != CL_SUCCESS) {
-            fprintf(stderr, "Failed executing kernel [renderParticles]: %d\n", opencl->ret);
-        }
-
+        opencl->step("renderParticles", nParticles);
         opencl->step("invertImage");
         opencl->step("lagImage");
         opencl->readBuffer("image2", (void *)&pixelData[0]);

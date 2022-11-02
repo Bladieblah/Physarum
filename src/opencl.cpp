@@ -135,6 +135,16 @@ void OpenCl::step(string name) {
     }
 }
 
+void OpenCl::step(string name, size_t size) {
+    size_t item_size[1] = {size};
+
+    ret = clEnqueueNDRangeKernel(command_queue, kernels[name], 1, NULL, item_size, NULL, 0, NULL, NULL);
+
+    if (ret != CL_SUCCESS) {
+        fprintf(stderr, "Failed executing kernel [%s]: %d\n", name.c_str(), ret);
+    }
+}
+
 void OpenCl::readBuffer(string name, void *pointer) {
     ret = clEnqueueReadBuffer(
         command_queue,

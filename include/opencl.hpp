@@ -28,6 +28,7 @@ public:
     void writeBuffer(std::string name, void *pointer);
     void swapBuffers(std::string buffer1, std::string buffer2);
     void step(std::string name);
+    void step(std::string name, size_t size);
     void readBuffer(std::string name, void *pointer);
     void cleanup();
 
