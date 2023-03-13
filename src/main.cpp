@@ -29,8 +29,8 @@ using namespace std;
 // #define size_x 4536
 // #define size_y 2946
 
-#define size_x 3024
-#define size_y 1964
+// #define size_x 3024
+// #define size_y 1964
 
 // #define size_x 5120
 // #define size_y 2880
@@ -38,8 +38,8 @@ using namespace std;
 // #define size_x 2060
 // #define size_y 1440
 
-// #define size_x 1400
-// #define size_y 802
+#define size_x 1400
+#define size_y 802
 
 int windowW = size_x / 2;
 int windowH = size_y / 2;
@@ -63,7 +63,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 4000000;
+uint32_t nParticles = 4000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -236,36 +236,36 @@ OpenCl *opencl;
 uint frameCount = 0;
 uint stepCount = 0;
 
-vector<string> bufferNames = {
-    "trail",
-    "trailCopy",
-    "particles",
-    "random",
-    "image",
-    "image2",
-    "colourMap",
-};
+vector<BufferSpec> bufferSpecs;
+void createBufferSpecs() {
+    bufferSpecs = {
+        {"trail",     {NULL, size_x * size_y * sizeof(float)}},
+        {"trailCopy", {NULL, size_x * size_y * sizeof(float)}},
+        {"particles", {NULL, nParticles * sizeof(Particle)}},
+        {"random",    {NULL, (nParticles + 2) * sizeof(float)}},
+        {"image",     {NULL, 3 * size_x * size_y * sizeof(uint32_t)}},
+        {"image2",    {NULL, 3 * size_x * size_y * sizeof(uint32_t)}},
+        {"colourMap", {NULL, 3 * nColours * sizeof(float)}},
+    };
+}
 
-vector<size_t> bufferSizes = {
-    size_x * size_y * sizeof(float),
-    size_x * size_y * sizeof(float),
-    nParticles * sizeof(Particle),
-    (nParticles + 2) * sizeof(float),
-    3 * size_x * size_y * sizeof(uint32_t),
-    3 * size_x * size_y * sizeof(uint32_t),
-    3 * nColours * sizeof(float),
-};
-
-vector<string> kernelNames = {
-    "moveParticles",
-    "diffuse",
-    "depositStuff",
-    "processTrail",
-    "resetImage",
-    "renderParticles",
-    "invertImage",
-    "lagImage",
-};
+vector<KernelSpec> kernelSpecs;
+void createKernelSpecs() {
+    kernelSpecs = {
+        {"moveParticles1",   {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
+        {"moveParticles2",   {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
+        {"depositStuff1",    {NULL, 1, {nParticles, 0},  {0, 0}, "depositStuff"}},
+        {"depositStuff2",    {NULL, 1, {nParticles, 0},  {0, 0}, "depositStuff"}},
+        {"renderParticles",  {NULL, 1, {nParticles, 0},  {0, 0}, "renderParticles"}},
+        {"diffuse1",         {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
+        {"diffuse2",         {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
+        {"processTrail1",    {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
+        {"processTrail2",    {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
+        {"resetImage",       {NULL, 2, {size_x, size_y}, {0, 0}, "resetImage"}},
+        {"invertImage",      {NULL, 2, {size_x, size_y}, {0, 0}, "invertImage"}},
+        {"lagImage",         {NULL, 2, {size_x, size_y}, {0, 0}, "lagImage"}},
+    };
+}
 
 // For recording
 char cmd[200];
@@ -327,7 +327,6 @@ void makeColourmap() {
     Colour col(x_i, y_i, nColours);
     
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
-    
     col.apply(colourMap);
 }
 
@@ -415,15 +414,78 @@ void writeBuffers() {
     opencl->writeBuffer("image2", (void *)pixelData);
 }
 
+void setKernalArgs() {
+    opencl->setKernelBufferArg("diffuse1", 0, "trail");
+    opencl->setKernelBufferArg("diffuse1", 1, "trailCopy");
+    opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
+
+    opencl->setKernelBufferArg("diffuse2", 0, "trailCopy");
+    opencl->setKernelBufferArg("diffuse2", 1, "trail");
+    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
+
+    opencl->setKernelBufferArg("moveParticles1", 0, "particles");
+    opencl->setKernelBufferArg("moveParticles1", 1, "trail");
+    opencl->setKernelBufferArg("moveParticles1", 2, "random");
+
+    opencl->setKernelBufferArg("moveParticles2", 0, "particles");
+    opencl->setKernelBufferArg("moveParticles2", 1, "trailCopy");
+    opencl->setKernelBufferArg("moveParticles2", 2, "random");
+
+    int size_x2 = size_x, size_y2 = size_y;
+    opencl->setKernelArg("moveParticles1", 3, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("moveParticles1", 4, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("moveParticles1", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&rotationAngle);
+
+    opencl->setKernelArg("moveParticles2", 3, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("moveParticles2", 4, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("moveParticles2", 5, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&rotationAngle);
+
+    opencl->setKernelBufferArg("depositStuff1", 0, "particles");
+    opencl->setKernelBufferArg("depositStuff1", 1, "trail");
+    opencl->setKernelArg("depositStuff1", 2, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("depositStuff1", 3, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("depositStuff1", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelBufferArg("depositStuff2", 0, "particles");
+    opencl->setKernelBufferArg("depositStuff2", 1, "trailCopy");
+    opencl->setKernelArg("depositStuff2", 2, sizeof(int), (void *)&size_x2);
+    opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&size_y2);
+    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelBufferArg("processTrail1", 0, "trail");
+    opencl->setKernelBufferArg("processTrail1", 1, "image");
+    opencl->setKernelBufferArg("processTrail1", 2, "colourMap");
+    opencl->setKernelArg("processTrail1", 3, sizeof(int), (void *)&nColours);
+
+    opencl->setKernelBufferArg("processTrail2", 0, "trailCopy");
+    opencl->setKernelBufferArg("processTrail2", 1, "image");
+    opencl->setKernelBufferArg("processTrail2", 2, "colourMap");
+    opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&nColours);
+
+    opencl->setKernelBufferArg("resetImage", 0, "image");
+
+    opencl->setKernelBufferArg("renderParticles", 0, "particles");
+    opencl->setKernelBufferArg("renderParticles", 1, "image");
+    opencl->setKernelArg("renderParticles", 2, sizeof(int), &size_x2);
+
+    opencl->setKernelBufferArg("invertImage", 0, "image");
+
+    opencl->setKernelBufferArg("lagImage", 0, "image");
+    opencl->setKernelBufferArg("lagImage", 1, "image2");
+}
+
 void prepare() {
+    createBufferSpecs();
+    createKernelSpecs();
+
     opencl = new OpenCl(
-        size_x,
-        size_y,
         "shaders/physarum.cl",
-        true,
-        bufferNames,
-        bufferSizes,
-        kernelNames
+        bufferSpecs,
+        kernelSpecs
     );
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
@@ -444,69 +506,7 @@ void prepare() {
     makeColourmap();
 
     writeBuffers();
-
-    // Diffuse with dual
-    opencl->setKernelBufferArg("diffuse", "trail", 0);
-    opencl->setKernelBufferArg("diffuse", "trailCopy", 1);
-    opencl->setKernelArg("diffuse", 2, sizeof(float), (void *)&one_9);
-
-    opencl->setKernelBufferArg("diffuse2", "trailCopy", 0);
-    opencl->setKernelBufferArg("diffuse2", "trail", 1);
-    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
-
-    opencl->setKernelBufferArg("moveParticles", "particles", 0);
-    opencl->setKernelBufferArg("moveParticles", "trail", 1);
-    opencl->setKernelBufferArg("moveParticles", "random", 2);
-
-    opencl->setKernelBufferArg("moveParticles2", "particles", 0);
-    opencl->setKernelBufferArg("moveParticles2", "trailCopy", 1);
-    opencl->setKernelBufferArg("moveParticles2", "random", 2);
-
-    int size_x2 = size_x, size_y2 = size_y;
-    opencl->setKernelArg("moveParticles", 3, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("moveParticles", 4, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("moveParticles", 5, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles", 6, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles", 7, sizeof(float), (void *)&rotationAngle);
-
-    opencl->setKernelArg("moveParticles2", 3, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("moveParticles2", 4, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("moveParticles2", 5, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&rotationAngle);
-
-    opencl->setKernelBufferArg("depositStuff", "particles", 0);
-    opencl->setKernelBufferArg("depositStuff", "trail", 1);
-    opencl->setKernelArg("depositStuff", 2, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("depositStuff", 3, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("depositStuff", 4, sizeof(float), (void *)&depositAmount);
-
-    opencl->setKernelBufferArg("depositStuff2", "particles", 0);
-    opencl->setKernelBufferArg("depositStuff2", "trailCopy", 1);
-    opencl->setKernelArg("depositStuff2", 2, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
-
-    opencl->setKernelBufferArg("processTrail", "trail", 0);
-    opencl->setKernelBufferArg("processTrail", "image", 1);
-    opencl->setKernelBufferArg("processTrail", "colourMap", 2);
-    opencl->setKernelArg("processTrail", 3, sizeof(int), (void *)&nColours);
-
-    opencl->setKernelBufferArg("processTrail2", "trailCopy", 0);
-    opencl->setKernelBufferArg("processTrail2", "image", 1);
-    opencl->setKernelBufferArg("processTrail2", "colourMap", 2);
-    opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&nColours);
-
-    opencl->setKernelBufferArg("resetImage", "image", 0);
-
-    opencl->setKernelBufferArg("renderParticles", "particles", 0);
-    opencl->setKernelBufferArg("renderParticles", "image", 1);
-    opencl->setKernelArg("renderParticles", 2, sizeof(int), &size_x2);
-
-    opencl->setKernelBufferArg("invertImage", "image", 0);
-
-    opencl->setKernelBufferArg("lagImage", "image", 0);
-    opencl->setKernelBufferArg("lagImage", "image2", 1);
+    setKernalArgs();
 }
 
 void cleanup() {
@@ -522,7 +522,7 @@ void cleanup() {
 
 void moveParticles() {
     if (stepCount % 2 == 0) {
-        opencl->step("moveParticles", (size_t)nParticles);
+        opencl->step("moveParticles1", (size_t)nParticles);
     } else {
         opencl->step("moveParticles2", (size_t)nParticles);
     }
@@ -533,7 +533,7 @@ void moveParticles() {
 
 void depositStuff() {
     if (stepCount % 2 == 0) {
-        opencl->step("depositStuff", nParticles);
+        opencl->step("depositStuff1", nParticles);
     } else {
         opencl->step("depositStuff2", nParticles);
     }
@@ -546,7 +546,7 @@ void iterParticles() {
 
 void diffuse() {
     if (stepCount % 2 == 0) {
-        opencl->step("diffuse");
+        opencl->step("diffuse1");
     } else {
         opencl->step("diffuse2");
     }
@@ -557,14 +557,14 @@ void calculateImage() {
 
     if (renderTrail) {
         if (stepCount % 2 == 0) {
-            opencl->step("processTrail");
+            opencl->step("processTrail1");
         } else {
             opencl->step("processTrail2");
         }
         opencl->readBuffer("image", (void *)&pixelData[0]);
     } else {
         opencl->step("resetImage");
-        opencl->step("renderParticles", nParticles);
+        opencl->step("renderParticles");
         opencl->step("invertImage");
         opencl->step("lagImage");
         opencl->readBuffer("image2", (void *)&pixelData[0]);
