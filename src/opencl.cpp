@@ -178,7 +178,7 @@ void OpenCl::step(string name, int count) {
     }
 
     getTime();
-    fprintf(stderr, "%s ", name.c_str());
+    fprintf(stderr, "%s ", kernel.name.c_str());
     for (int i = strlen(name.c_str()); i < 20; i++) {
         fprintf(stderr, " ");
     }
@@ -189,7 +189,7 @@ void OpenCl::step(string name, int count) {
         fprintf(stderr, "OpenCL = %09.1fμs", clTime);
     }
 
-    fprintf(stderr, "\n");
+    fprintf(stderr, "                    \n");
 }
 
 void OpenCl::readBuffer(string name, void *pointer) {

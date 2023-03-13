@@ -29,8 +29,8 @@ using namespace std;
 // #define size_x 4536
 // #define size_y 2946
 
-// #define size_x 3024
-// #define size_y 1964
+#define size_x 3024
+#define size_y 1964
 
 // #define size_x 5120
 // #define size_y 2880
@@ -38,8 +38,8 @@ using namespace std;
 // #define size_x 2060
 // #define size_y 1440
 
-#define size_x 1400
-#define size_y 802
+// #define size_x 1400
+// #define size_y 802
 
 int windowW = size_x / 2;
 int windowH = size_y / 2;
@@ -63,7 +63,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 4000;
+uint32_t nParticles = 4000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -414,7 +414,7 @@ void writeBuffers() {
     opencl->writeBuffer("image2", (void *)pixelData);
 }
 
-void setKernalArgs() {
+void setKernelArgs() {
     opencl->setKernelBufferArg("diffuse1", 0, "trail");
     opencl->setKernelBufferArg("diffuse1", 1, "trailCopy");
     opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
@@ -506,7 +506,7 @@ void prepare() {
     makeColourmap();
 
     writeBuffers();
-    setKernalArgs();
+    setKernelArgs();
 }
 
 void cleanup() {
@@ -522,9 +522,9 @@ void cleanup() {
 
 void moveParticles() {
     if (stepCount % 2 == 0) {
-        opencl->step("moveParticles1", (size_t)nParticles);
+        opencl->step("moveParticles1");
     } else {
-        opencl->step("moveParticles2", (size_t)nParticles);
+        opencl->step("moveParticles2");
     }
 
     fillRandom();
@@ -533,9 +533,9 @@ void moveParticles() {
 
 void depositStuff() {
     if (stepCount % 2 == 0) {
-        opencl->step("depositStuff1", nParticles);
+        opencl->step("depositStuff1");
     } else {
-        opencl->step("depositStuff2", nParticles);
+        opencl->step("depositStuff2");
     }
 }
 
@@ -553,8 +553,6 @@ void diffuse() {
 }
 
 void calculateImage() {
-    size_t particle_item_size[1] = {nParticles};
-
     if (renderTrail) {
         if (stepCount % 2 == 0) {
             opencl->step("processTrail1");
@@ -619,7 +617,12 @@ void display() {
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-        fprintf(stderr, "\rStep = %d, time = %.4g            ", frameCount / 2, time_span.count());
+        fprintf(stderr, "Step = %d, time = %.4g            ", frameCount / 2, time_span.count());
+        if (renderTrail) {
+            fprintf(stderr, "\x1b[4A");
+        } else {
+            fprintf(stderr, "\x1b[7A");
+        }
 
     }
 
