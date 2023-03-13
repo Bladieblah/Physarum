@@ -634,11 +634,11 @@ void display() {
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> time_span = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
-        fprintf(stderr, "Step = %d, time = %.4g            ", frameCount / 2, time_span.count());
+        fprintf(stderr, "Step = %d, time = %.4g               \n", frameCount / 2, time_span.count());
         if (renderTrail) {
-            fprintf(stderr, "\x1b[4A");
+            fprintf(stderr, "\x1b[5A");
         } else {
-            fprintf(stderr, "\x1b[7A");
+            fprintf(stderr, "\x1b[8A");
         }
 
     }
