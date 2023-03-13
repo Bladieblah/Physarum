@@ -4,6 +4,58 @@ __constant float rescaleFactor = 1.25213309998062819936804151;
 __constant float invsqrt07 = 1.19522860933439363996881717;
 __constant float imageLim = 0.999;
 
+/**
+ * RNG stuff
+ */
+
+__constant ulong PCG_SHIFT = 6364136223846793005ULL;
+__constant float PCG_MAX_1 = 4294967296.0;
+
+inline ulong pcg32Random(global ulong *randomState, global ulong *randomIncrement, int x) {
+    ulong oldstate = randomState[x];
+    randomState[x] = oldstate * PCG_SHIFT + randomIncrement[x];
+    uint xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint rot = oldstate >> 59u;
+    uint pcg = (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+
+    return pcg;
+}
+
+__kernel void seedNoise(
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    global ulong *initState,
+    global ulong *initSeq
+) {
+    const int x = get_global_id(0);
+
+    randomState[x] = 0U;
+    randomIncrement[x] = (initSeq[x] << 1u) | 1u;
+    pcg32Random(randomState, randomIncrement, x);
+    randomState[x] += initState[x];
+    pcg32Random(randomState, randomIncrement, x);
+}
+
+inline float uniformRand(
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    int x
+) {
+    return (float)pcg32Random(randomState, randomIncrement, x) / PCG_MAX_1;
+}
+
+inline float gaussianRand(
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    int x
+) {
+    return inverseNormalCdf(uniformRand(randomState, randomIncrement, x));
+}
+
+/**
+ * Particle stuff
+ */
+
 typedef struct Particle {
     float x, y;
     float phi;
@@ -51,10 +103,11 @@ __kernel void diffuse(global float *input, global float *output, float one_9)
 }
 
 __kernel void moveParticles(
-    global Particle *particles, 
-    global float *trail, 
-    global float *random, 
-    int size_x, 
+    global Particle *particles,
+    global float *trail,
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    int size_x,
     int size_y,
     float sensorAngle,
     float sensorDist,
@@ -83,7 +136,7 @@ __kernel void moveParticles(
     fr = trail[(int)frx + size_x * (int)fry];
 
     if (fc < fl && fc < fr) {
-        particle.phi += rotationAngle * (random[x+1] > 0.5 ? 1 : -1);
+        particle.phi += rotationAngle * (uniformRand(randomState, randomIncrement, x) > 0.5 ? 1 : -1);
     }
     else if (fl > fc && fc > fr) {
         particle.phi -= rotationAngle;
@@ -152,7 +205,6 @@ __kernel void depositStuff(
     float depositAmount
 ) {
 	const int x = get_global_id(0);
-	const int nParticles = get_global_size(0);
 
     Particle particle = particles[x];
 
