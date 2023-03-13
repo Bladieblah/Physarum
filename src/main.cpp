@@ -227,9 +227,6 @@ float stableAverage = 0.2992;
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
 
-Particle *particles;
-float *trail, *trailDummy;
-
 // OpenCl stuff
 
 OpenCl *opencl;
@@ -457,52 +454,34 @@ void prepare() {
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
 
-    particles = (Particle *)malloc(nParticles * sizeof(Particle));
-    trail = (float *)malloc(size_x * size_y * sizeof(float));
-    trailDummy = (float *)malloc(size_x * size_y * sizeof(float));
-
-    for (int i = 0; i < nParticles; i++) {
-        particles[i] = Particle();
-    }
-
     setKernelArgs();
 
     initPcg();
-    initpixelData();
     makeColourmap();
 
+    opencl->step("resetTrail");
     opencl->step("initParticles");
 }
 
 void cleanup() {
     /* Finalization */
     free(colourMap);
-    free(particles);
-    free(trail);
-    free(trailDummy);
 
     opencl->cleanup();
 }
 
-void moveParticles() {
+void iterParticles() {
     if (stepCount % 2 == 0) {
         opencl->step("moveParticles1");
     } else {
         opencl->step("moveParticles2");
     }
-}
 
-void depositStuff() {
     if (stepCount % 2 == 0) {
         opencl->step("depositStuff1");
     } else {
         opencl->step("depositStuff2");
     }
-}
-
-void iterParticles() {
-	moveParticles();
-	depositStuff();
 }
 
 void diffuse() {
@@ -630,7 +609,7 @@ void key_pressed(unsigned char key, int x, int y) {
             glutPostRedisplay();
             break;
         case 'r':
-            initpixelData();
+            opencl->step("resetTrail");
             break;
         case 'i':
             opencl->step("initParticles");
