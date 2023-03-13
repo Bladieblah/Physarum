@@ -11,6 +11,71 @@ __constant float imageLim = 0.999;
 __constant ulong PCG_SHIFT = 6364136223846793005ULL;
 __constant float PCG_MAX_1 = 4294967296.0;
 
+#define UNIFORM_LOW 0.02425
+#define UNIFORM_HIGH 0.97575
+
+__constant float a[] = {
+    -3.969683028665376e+01,
+     2.209460984245205e+02,
+    -2.759285104469687e+02,
+     1.383577518672690e+02,
+    -3.066479806614716e+01,
+     2.506628277459239e+00
+};
+
+__constant float b[] = {
+    -5.447609879822406e+01,
+     1.615858368580409e+02,
+    -1.556989798598866e+02,
+     6.680131188771972e+01,
+    -1.328068155288572e+01
+};
+
+__constant float c[] = {
+    -7.784894002430293e-03,
+    -3.223964580411365e-01,
+    -2.400758277161838e+00,
+    -2.549732539343734e+00,
+     4.374664141464968e+00,
+     2.938163982698783e+00
+};
+
+__constant float d[] = {
+    7.784695709041462e-03,
+    3.224671290700398e-01,
+    2.445134137142996e+00,
+    3.754408661907416e+00
+};
+
+inline float inverseNormalCdf(float u) {
+    float q, r;
+
+    if (u <= 0) {
+        return -HUGE_VAL;
+    }
+    else if (u < UNIFORM_LOW) {
+        q = sqrt(-2 * log(u));
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+            ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    else if (u <= UNIFORM_HIGH) {
+        q = u - 0.5;
+        r = q * q;
+        
+        return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+            (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+    }
+    else if (u < 1) {
+        q  = sqrt(-2 * log(1 - u));
+
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+            ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    else {
+        return HUGE_VAL;
+    }
+}
+
 inline ulong pcg32Random(global ulong *randomState, global ulong *randomIncrement, int x) {
     ulong oldstate = randomState[x];
     randomState[x] = oldstate * PCG_SHIFT + randomIncrement[x];
@@ -62,17 +127,72 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
+inline float clip(float in, float lower, float upper) {
+    if (in < lower) {
+        return lower;
+    }
+    if (in > upper) {
+        return upper;
+    }
+
+    return in;
+}
+
+__kernel void initParticles(
+    global Particle *particles,
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    float particleStepSize,
+    int size_x,
+    int size_y
+) {
+    const int x = get_global_id(0);
+
+    // Squaretangle
+    // for (i = 0; i < particlesPerThread; i++) {
+    //     particle = particles[thread][i];
+
+    //     particle.x = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_x;
+    //     particle.y = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_y;
+    //     particle.phi = 2 * M_PI * UNI();
+
+    //     particles[thread][i] = particle;
+    // }
+
+    // Circle
+    float xc = size_x * 0.5;
+    float yc = size_y * 0.5;
+
+    float theta = uniformRand(randomState, randomIncrement, x) * 2 * M_PI;
+    float rad = (gaussianRand(randomState, randomIncrement, x) / 32. + 0.25);
+
+    particles[x].x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
+    particles[x].y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
+    particles[x].phi = atan2(yc - particles[x].y, xc - particles[x].x);
+    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 1;
+}
+
+__kernel void setParticleVels(
+    global Particle *particles,
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    float particleStepSize
+) {
+    const int x = get_global_id(0);
+    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 1;
+}
+
 __kernel void diffuse(global float *input, global float *output, float one_9)
 {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	
-	const int W = get_global_size(0);
-	const int H = get_global_size(1);
-	
-	int index;
-	
-	index = (W * y + x);
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+    const int H = get_global_size(1);
+    
+    int index;
+    
+    index = (W * y + x);
     
     int k, l, km, lm;
     float conv = 0;
@@ -113,9 +233,9 @@ __kernel void moveParticles(
     float sensorDist,
     float rotationAngle
 ) {
-	const int x = get_global_id(0);
-	const int nParticles = get_global_size(0);
-	
+    const int x = get_global_id(0);
+    const int nParticles = get_global_size(0);
+    
     float fl, fc, fr;
     float flx, fly, fcx, fcy, frx, fry;
 
@@ -204,7 +324,7 @@ __kernel void depositStuff(
     int size_y,
     float depositAmount
 ) {
-	const int x = get_global_id(0);
+    const int x = get_global_id(0);
 
     Particle particle = particles[x];
 
@@ -231,17 +351,32 @@ inline float rescaleTrail2(float x) {
     return 0.5 + cos(sqrt(x - 0.7)) * 0.5;
 }
 
+__kernel void resetTrail(
+    global float *trail1,
+    global float *trail2
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+
+    int ind = (x + W * y);
+    
+    trail1[ind] = 0;
+    trail2[ind] = 0;
+}
+
 __kernel void processTrail(
     global float *trail, 
     global uint *image, 
     global float *colourMap,
     int nColours
 ) {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	
-	const int W = get_global_size(0);
-	const int H = get_global_size(1);
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+    const int H = get_global_size(1);
 
     int ind, ind2;
 
@@ -258,11 +393,11 @@ __kernel void processTrail(
 __kernel void resetImage(
     global uint *image
 ) {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	
-	const int W = get_global_size(0);
-	const int H = get_global_size(1);
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+    const int H = get_global_size(1);
 
     int ind = (x + W * y);
 
@@ -276,7 +411,7 @@ __kernel void renderParticles(
     global uint *image,
     int W
 ) {
-	const int x = get_global_id(0);
+    const int x = get_global_id(0);
     Particle particle = particles[x];
     int ind = ((int)particle.x + W * (int)particle.y);
 
@@ -288,11 +423,11 @@ __kernel void renderParticles(
 __kernel void invertImage(
     global uint *image
 ) {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	
-	const int W = get_global_size(0);
-	const int H = get_global_size(1);
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+    const int H = get_global_size(1);
 
     int ind = (x + W * y);
 
@@ -305,11 +440,11 @@ __kernel void lagImage(
     global uint *image,
     global uint *image2
 ) {
-	const int x = get_global_id(0);
-	const int y = get_global_id(1);
-	
-	const int W = get_global_size(0);
-	const int H = get_global_size(1);
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    
+    const int W = get_global_size(0);
+    const int H = get_global_size(1);
 
     int ind = (x + W * y);
 

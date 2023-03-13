@@ -258,6 +258,8 @@ vector<KernelSpec> kernelSpecs;
 void createKernelSpecs() {
     kernelSpecs = {
         {"seedNoise",       {NULL, 1, {nParticles, 0},  {0, 0}, "seedNoise"}},
+        {"initParticles",   {NULL, 1, {nParticles, 0},  {0, 0}, "initParticles"}},
+        {"setParticleVels", {NULL, 1, {nParticles, 0},  {0, 0}, "setParticleVels"}},
         {"moveParticles1",  {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
         {"moveParticles2",  {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
         {"depositStuff1",   {NULL, 1, {nParticles, 0},  {0, 0}, "depositStuff"}},
@@ -265,6 +267,7 @@ void createKernelSpecs() {
         {"renderParticles", {NULL, 1, {nParticles, 0},  {0, 0}, "renderParticles"}},
         {"diffuse1",        {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
         {"diffuse2",        {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
+        {"resetTrail",      {NULL, 2, {size_x, size_y}, {0, 0}, "resetTrail"}},
         {"processTrail1",   {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
         {"processTrail2",   {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
         {"resetImage",      {NULL, 2, {size_x, size_y}, {0, 0}, "resetImage"}},
@@ -338,81 +341,6 @@ void makeColourmap() {
     opencl->writeBuffer("colourMap", (void *)colourMap);
 }
 
-void initpixelData() {
-    int i, j, k;
-
-    // int xc = size_x / 2;
-    // int yc = size_y / 2;
-
-    // int R = size_y / 4;
-    // float r, w = 5;
-
-    // float seedx = UNI() * 20 - 10;
-    // float seedy = UNI() * 20 - 10;
-
-    int ind;
-
-    for (i = 0; i < size_x; i++) {
-        for (j = 0; j < size_y; j++) {
-            ind = i + size_x * j;
-            // r = sqrt(pow(i - xc, 2) + pow(j - yc, 2));
-            // trail[ind] = fmin(1., exp(-pow((r - R) / w, 2)));// + pow((1 + SimplexNoise::noise(i * size_y_inv * 60, j * size_y_inv * 60)) / 2, 6) / 2);
-            // trail[i][j] = fmin(1., pow((1 + SimplexNoise::noise((i * size_y_inv + seedx) * 10, (j * size_y_inv + seedy) * 10)) / 2, 6) / 2);
-            trail[ind] = 0;
-            for (k = 0; k < 3; k++) {
-                pixelData[3 * ind + k] = 0;
-            }
-        }
-    }
-
-    opencl->writeBuffer("trail", (void *)trail);
-    opencl->writeBuffer("trailCopy", (void *)trail);
-    opencl->writeBuffer("image", (void *)pixelData);
-    opencl->writeBuffer("image2", (void *)pixelData);
-}
-
-float clip(float in, float lower, float upper) {
-    if (in < lower) {
-        return lower;
-    }
-    if (in > upper) {
-        return upper;
-    }
-
-    return in;
-}
-
-void initParticles() {
-    int i;
-
-    // Squaretangle
-    // for (i = 0; i < particlesPerThread; i++) {
-    //     particle = particles[thread][i];
-
-    //     particle.x = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_x;
-    //     particle.y = clip(0.5 + RANDN() * 0.31999, 0.3, 0.7) * size_y;
-    //     particle.phi = 2 * M_PI * UNI();
-
-    //     particles[thread][i] = particle;
-    // }
-
-    // Circle
-    float xc = size_x * 0.5;
-    float yc = size_y * 0.5;
-
-    for (i = 0; i < nParticles; i++) {
-        float theta = UNI() * 2 * M_PI;
-        float rad = (RANDN() / 32. + 0.25);
-
-        particles[i].x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
-        particles[i].y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
-        particles[i].phi = atan2(yc - particles[i].y, xc - particles[i].x);
-        particles[i].velocity = UNI() * particleStepSize + 1;
-    }
-    
-    opencl->writeBuffer("particles", (void *)particles);
-}
-
 void setKernelArgs() {
     int size_x2 = size_x, size_y2 = size_y;
 
@@ -461,6 +389,9 @@ void setKernelArgs() {
     opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&size_y2);
     opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
 
+    opencl->setKernelBufferArg("resetTrail", 0, "trail");
+    opencl->setKernelBufferArg("resetTrail", 1, "trailCopy");
+
     opencl->setKernelBufferArg("processTrail1", 0, "trail");
     opencl->setKernelBufferArg("processTrail1", 1, "image");
     opencl->setKernelBufferArg("processTrail1", 2, "colourMap");
@@ -481,6 +412,18 @@ void setKernelArgs() {
 
     opencl->setKernelBufferArg("lagImage", 0, "image");
     opencl->setKernelBufferArg("lagImage", 1, "image2");
+
+    opencl->setKernelBufferArg("initParticles", 0, "particles");
+    opencl->setKernelBufferArg("initParticles", 1, "randomState");
+    opencl->setKernelBufferArg("initParticles", 2, "randomIncrement");
+    opencl->setKernelArg("initParticles", 3, sizeof(float), &particleStepSize);
+    opencl->setKernelArg("initParticles", 4, sizeof(int), &size_x2);
+    opencl->setKernelArg("initParticles", 5, sizeof(int), &size_y2);
+    
+    opencl->setKernelBufferArg("setParticleVels", 0, "particles");
+    opencl->setKernelBufferArg("setParticleVels", 1, "randomState");
+    opencl->setKernelBufferArg("setParticleVels", 2, "randomIncrement");
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &particleStepSize);
 }
 
 void initPcg() {
@@ -526,8 +469,9 @@ void prepare() {
 
     initPcg();
     initpixelData();
-    initParticles();
     makeColourmap();
+
+    opencl->step("initParticles");
 }
 
 void cleanup() {
@@ -671,6 +615,9 @@ void randomiseParameters() {
     opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&sensorDist);
     opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&rotationAngle);
     opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
+
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &particleStepSize);
+    opencl->step("setParticleVels");
 }
 
 void key_pressed(unsigned char key, int x, int y) {
@@ -686,7 +633,7 @@ void key_pressed(unsigned char key, int x, int y) {
             initpixelData();
             break;
         case 'i':
-            initParticles();
+            opencl->step("initParticles");
             break;
         case 'b':
             showColorBar = !showColorBar;
