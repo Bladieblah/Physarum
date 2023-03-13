@@ -657,19 +657,19 @@ void randomiseParameters() {
     decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
     one_9 = 1. / 9. * decayFactor;
 
-    fprintf(stderr, "\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
+    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
         sensorAngle, sensorDist, rotationAngle, particleStepSize, depositAmount, stableAverage);
 
-    opencl->setKernelArg("diffuse", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles", 5, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles", 6, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles", 7, sizeof(float), (void *)&rotationAngle);
-    opencl->setKernelArg("depositStuff", 4, sizeof(float), (void *)&depositAmount);
+    opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
+    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("depositStuff1", 4, sizeof(float), (void *)&depositAmount);
 
     opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles2", 5, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorAngle);
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&sensorDist);
+    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&rotationAngle);
     opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
 }
 
