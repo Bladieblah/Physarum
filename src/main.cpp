@@ -13,46 +13,24 @@
 #include <GLUT/glut.h>
 
 #include "colour.hpp"
+#include "config.hpp"
 #include "SimplexNoise.hpp"
 #include "pcg.hpp"
 #include "opencl.hpp"
 
 using namespace std;
 
-// Window size
-// #define size_x 1920
-// #define size_y 1080
 
-// #define size_x 6048
-// #define size_y 3928
+int windowW, windowH;
 
-// #define size_x 4536
-// #define size_y 2946
-
-#define size_x 3024
-#define size_y 1964
-
-// #define size_x 5120
-// #define size_y 2880
-
-// #define size_x 2060
-// #define size_y 1440
-
-// #define size_x 1400
-// #define size_y 802
-
-int windowW = size_x / 2;
-int windowH = size_y / 2;
-
-float size_x_inv = 1. / size_x;
-float size_y_inv = 1. / size_y;
+float size_x_inv, size_y_inv;
 
 bool showColorBar = false;
 bool recording = false;
 bool renderTrail = false;
 
 // Array to be drawn
-uint32_t pixelData[size_y*size_x*3];
+uint32_t *pixelData;
 
 float *colourMap;
 int nColours = 765;
@@ -63,213 +41,51 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 4000000;
-
-// Idk
-// float sensorAngle = 45. / 180. * M_PI / 80.;
-// float sensorDist = 80;
-// float rotationAngle = 45. / 180. * M_PI / 18.;
-// float particleStepSize = 2;
-// float depositAmount = 0.05;
-// float stableAverage = 0.3;
-
-// Road network! omg
-// float sensorAngle = 0.4732;
-// float sensorDist = 26.3819;
-// float rotationAngle = 0.1338;
-// float particleStepSize = 5.1793;
-// float depositAmount = 0.0196;
-// float stableAverage = 0.2868;
-
-// Cloudy bu stringy??
-// float sensorAngle = 0.5298;
-// float sensorDist = 87.6185;
-// float rotationAngle = 2.6770;
-// float particleStepSize = 4.1530;
-// float depositAmount = 0.1068;
-// float stableAverage = 0.1107;
-
-// City Grid
-// float sensorAngle = 0.0474;
-// float sensorDist = 14.9574;
-// float rotationAngle = 0.2148;
-// float particleStepSize = 2.4507;
-// float depositAmount = 0.0284;
-// float stableAverage = 0.1357;
-
-// double highway
-// float sensorAngle = 1.0376;
-// float sensorDist = 40.5436;
-// float rotationAngle = 0.1885;
-// float particleStepSize = 8.7137;
-// float depositAmount = 0.0571;
-// float stableAverage = 0.1194;
-
-// double highway with spikes
-// float sensorAngle = 1.3826;
-// float sensorDist = 40.6530;
-// float rotationAngle = 0.1500;
-// float particleStepSize = 6.9252;
-// float depositAmount = 0.0293;
-// float stableAverage = 0.1493;
-
-// Highway 2
-// float sensorAngle = 5.7312;
-// float sensorDist = 104.3958;
-// float rotationAngle = 5.7027;
-// float particleStepSize = 0.3103;
-// float depositAmount = 0.0625;
-// float stableAverage = 0.2133;
-
-// Close to clouds  
-// float sensorAngle = 0.1721;
-// float sensorDist = 108.5649;
-// float rotationAngle = 2.8536;
-// float particleStepSize = 4.3918;
-// float depositAmount = 0.0206;
-// float stableAverage = 0.2866;
-
-// Spoopy
-// float sensorAngle = 0.3596;
-// float sensorDist = 158.0992;
-// float rotationAngle = 0.2333;
-// float particleStepSize = 6.0674;
-// float depositAmount = 0.0099;
-// float stableAverage = 0.3276;
-
-// Gridsss
-// float sensorAngle = 0.5191;
-// float sensorDist = 29.3579;
-// float rotationAngle = 0.4350;
-// float particleStepSize = 8.8227;
-// float depositAmount = 0.2609;
-// float stableAverage = 0.3571;
-
-// Ropey
-// float sensorAngle = 45. / 180. * M_PI / 8.;
-// float sensorDist = 20;
-// float rotationAngle = 45. / 180. * M_PI / 18.;
-// float particleStepSize = 2;
-// float depositAmount = 0.01;
-// float stableAverage = 0.2;
-
-// Supernova
-// float sensorAngle = -45. / 180. * M_PI / 80.;
-// float sensorDist = 200;
-// float rotationAngle = 45. / 180. * M_PI / 180.;
-// float particleStepSize = 2;
-// float depositAmount = 0.001;
-// float stableAverage = 0.2;
-
-// Stringy
-// float sensorAngle = 45. / 180. * M_PI / 8.;
-// float sensorDist = 20;
-// float rotationAngle = 45. / 180. * M_PI / 18.;
-// float particleStepSize = 9;
-// float depositAmount = 0.01;
-// float stableAverage = 0.2;
-
-// Firey
-// float sensorAngle = 45. / 180. * M_PI / 2.;
-// float sensorDist = 10;
-// float rotationAngle = -45. / 180. * M_PI / 6.;
-// float particleStepSize = 2;
-// float depositAmount = 0.1;
-// float stableAverage = 0.3;
-
-// semi-cloudy
-// float sensorAngle = 5.1340;
-// float sensorDist = 8.6095;
-// float rotationAngle = 2.4484;
-// float particleStepSize = 7.8162;
-// float depositAmount = 0.0140;
-// float stableAverage = 0.2407;
-
-// Sauron
-// float sensorAngle = 4.4548;
-// float sensorDist = 45.7309;
-// float rotationAngle = 6.1194;
-// float particleStepSize = 7.2887;
-// float depositAmount = 0.1714;
-// float stableAverage = 0.3403;
-
-// Honingraat
-// float sensorAngle = 2.2544;
-// float sensorDist = 4.7555;
-// float rotationAngle = 4.9923;
-// float particleStepSize = 9.2328;
-// float depositAmount = 0.2203;
-// float stableAverage = 0.3875;
-
-// Very dynamic
-// float sensorAngle = 5.9553;
-// float sensorDist = 197.3020;
-// float rotationAngle = 6.2584;
-// float particleStepSize = 6.8858;
-// float depositAmount = 0.0141;
-// float stableAverage = 0.2476;
-
-// Keeps evolving
-// float sensorAngle = 0.1088;
-// float sensorDist = 179.6908;
-// float rotationAngle = 0.1832;
-// float particleStepSize = 1.5837;
-// float depositAmount = 0.0781;
-// float stableAverage = 0.3475;
-
-float sensorAngle = 0.4367;
-float sensorDist = 13.2189;
-float rotationAngle = 0.7218;
-float particleStepSize = 5.9052;
-float depositAmount = 0.1264;
-float stableAverage = 0.2992;
-
-float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
-float one_9 = 1. / 9. * decayFactor;
 
 // OpenCl stuff
 
 OpenCl *opencl;
+Config *config;
 uint frameCount = 0;
 uint stepCount = 0;
 
 vector<BufferSpec> bufferSpecs;
 void createBufferSpecs() {
     bufferSpecs = {
-        {"trail",     {NULL, size_x * size_y * sizeof(float)}},
-        {"trailCopy", {NULL, size_x * size_y * sizeof(float)}},
-        {"particles", {NULL, nParticles * sizeof(Particle)}},
-        {"random",    {NULL, (nParticles + 2) * sizeof(float)}},
-        {"image",     {NULL, 3 * size_x * size_y * sizeof(uint32_t)}},
-        {"image2",    {NULL, 3 * size_x * size_y * sizeof(uint32_t)}},
+        {"trail",     {NULL, config->width * config->height * sizeof(float)}},
+        {"trailCopy", {NULL, config->width * config->height * sizeof(float)}},
+        {"particles", {NULL, config->particleCount * sizeof(Particle)}},
+        {"random",    {NULL, (config->particleCount + 2) * sizeof(float)}},
+        {"image",     {NULL, 3 * config->width * config->height * sizeof(uint32_t)}},
+        {"image2",    {NULL, 3 * config->width * config->height * sizeof(uint32_t)}},
         {"colourMap", {NULL, 3 * nColours * sizeof(float)}},
 
-        {"randomState",     {NULL, nParticles * sizeof(uint64_t)}},
-        {"randomIncrement", {NULL, nParticles * sizeof(uint64_t)}},
-        {"initState",       {NULL, nParticles * sizeof(uint64_t)}},
-        {"initSeq",         {NULL, nParticles * sizeof(uint64_t)}},
+        {"randomState",     {NULL, config->particleCount * sizeof(uint64_t)}},
+        {"randomIncrement", {NULL, config->particleCount * sizeof(uint64_t)}},
+        {"initState",       {NULL, config->particleCount * sizeof(uint64_t)}},
+        {"initSeq",         {NULL, config->particleCount * sizeof(uint64_t)}},
     };
 }
 
 vector<KernelSpec> kernelSpecs;
 void createKernelSpecs() {
     kernelSpecs = {
-        {"seedNoise",       {NULL, 1, {nParticles, 0},  {0, 0}, "seedNoise"}},
-        {"initParticles",   {NULL, 1, {nParticles, 0},  {0, 0}, "initParticles"}},
-        {"setParticleVels", {NULL, 1, {nParticles, 0},  {0, 0}, "setParticleVels"}},
-        {"moveParticles1",  {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
-        {"moveParticles2",  {NULL, 1, {nParticles, 0},  {0, 0}, "moveParticles"}},
-        {"depositStuff1",   {NULL, 1, {nParticles, 0},  {0, 0}, "depositStuff"}},
-        {"depositStuff2",   {NULL, 1, {nParticles, 0},  {0, 0}, "depositStuff"}},
-        {"renderParticles", {NULL, 1, {nParticles, 0},  {0, 0}, "renderParticles"}},
-        {"diffuse1",        {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
-        {"diffuse2",        {NULL, 2, {size_x, size_y}, {0, 0}, "diffuse"}},
-        {"resetTrail",      {NULL, 2, {size_x, size_y}, {0, 0}, "resetTrail"}},
-        {"processTrail1",   {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
-        {"processTrail2",   {NULL, 2, {size_x, size_y}, {0, 0}, "processTrail"}},
-        {"resetImage",      {NULL, 2, {size_x, size_y}, {0, 0}, "resetImage"}},
-        {"invertImage",     {NULL, 2, {size_x, size_y}, {0, 0}, "invertImage"}},
-        {"lagImage",        {NULL, 2, {size_x, size_y}, {0, 0}, "lagImage"}},
+        {"seedNoise",       {NULL, 1, {config->particleCount, 0},  {0, 0}, "seedNoise"}},
+        {"initParticles",   {NULL, 1, {config->particleCount, 0},  {0, 0}, "initParticles"}},
+        {"setParticleVels", {NULL, 1, {config->particleCount, 0},  {0, 0}, "setParticleVels"}},
+        {"moveParticles1",  {NULL, 1, {config->particleCount, 0},  {0, 0}, "moveParticles"}},
+        {"moveParticles2",  {NULL, 1, {config->particleCount, 0},  {0, 0}, "moveParticles"}},
+        {"depositStuff1",   {NULL, 1, {config->particleCount, 0},  {0, 0}, "depositStuff"}},
+        {"depositStuff2",   {NULL, 1, {config->particleCount, 0},  {0, 0}, "depositStuff"}},
+        {"renderParticles", {NULL, 1, {config->particleCount, 0},  {0, 0}, "renderParticles"}},
+        {"diffuse1",        {NULL, 2, {config->width, config->height}, {0, 0}, "diffuse"}},
+        {"diffuse2",        {NULL, 2, {config->width, config->height}, {0, 0}, "diffuse"}},
+        {"resetTrail",      {NULL, 2, {config->width, config->height}, {0, 0}, "resetTrail"}},
+        {"processTrail1",   {NULL, 2, {config->width, config->height}, {0, 0}, "processTrail"}},
+        {"processTrail2",   {NULL, 2, {config->width, config->height}, {0, 0}, "processTrail"}},
+        {"resetImage",      {NULL, 2, {config->width, config->height}, {0, 0}, "resetImage"}},
+        {"invertImage",     {NULL, 2, {config->width, config->height}, {0, 0}, "invertImage"}},
+        {"lagImage",        {NULL, 2, {config->width, config->height}, {0, 0}, "lagImage"}},
     };
 }
 
@@ -339,7 +155,8 @@ void makeColourmap() {
 }
 
 void setKernelArgs() {
-    int size_x2 = size_x, size_y2 = size_y;
+    float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
+    float one_9 = 1. / 9. * decayFactor;
 
     opencl->setKernelBufferArg("seedNoise", 0, "randomState");
     opencl->setKernelBufferArg("seedNoise", 1, "randomIncrement");
@@ -358,33 +175,33 @@ void setKernelArgs() {
     opencl->setKernelBufferArg("moveParticles1", 1, "trail");
     opencl->setKernelBufferArg("moveParticles1", 2, "randomState");
     opencl->setKernelBufferArg("moveParticles1", 3, "randomIncrement");
-    opencl->setKernelArg("moveParticles1", 4, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("moveParticles1", 5, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("moveParticles1", 4, sizeof(int), (void *)&(config->width));
+    opencl->setKernelArg("moveParticles1", 5, sizeof(int), (void *)&(config->height));
+    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
 
     opencl->setKernelBufferArg("moveParticles2", 0, "particles");
     opencl->setKernelBufferArg("moveParticles2", 1, "trailCopy");
     opencl->setKernelBufferArg("moveParticles2", 2, "randomState");
     opencl->setKernelBufferArg("moveParticles2", 3, "randomIncrement");
-    opencl->setKernelArg("moveParticles2", 4, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("moveParticles2", 5, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&rotationAngle);
+    opencl->setKernelArg("moveParticles2", 4, sizeof(int), (void *)&(config->width));
+    opencl->setKernelArg("moveParticles2", 5, sizeof(int), (void *)&(config->height));
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
 
     opencl->setKernelBufferArg("depositStuff1", 0, "particles");
     opencl->setKernelBufferArg("depositStuff1", 1, "trail");
-    opencl->setKernelArg("depositStuff1", 2, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("depositStuff1", 3, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("depositStuff1", 4, sizeof(float), (void *)&depositAmount);
+    opencl->setKernelArg("depositStuff1", 2, sizeof(int), (void *)&(config->width));
+    opencl->setKernelArg("depositStuff1", 3, sizeof(int), (void *)&(config->height));
+    opencl->setKernelArg("depositStuff1", 4, sizeof(float), (void *)&(config->depositAmount));
 
     opencl->setKernelBufferArg("depositStuff2", 0, "particles");
     opencl->setKernelBufferArg("depositStuff2", 1, "trailCopy");
-    opencl->setKernelArg("depositStuff2", 2, sizeof(int), (void *)&size_x2);
-    opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&size_y2);
-    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
+    opencl->setKernelArg("depositStuff2", 2, sizeof(int), (void *)&(config->width));
+    opencl->setKernelArg("depositStuff2", 3, sizeof(int), (void *)&(config->height));
+    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&(config->depositAmount));
 
     opencl->setKernelBufferArg("resetTrail", 0, "trail");
     opencl->setKernelBufferArg("resetTrail", 1, "trailCopy");
@@ -403,7 +220,7 @@ void setKernelArgs() {
 
     opencl->setKernelBufferArg("renderParticles", 0, "particles");
     opencl->setKernelBufferArg("renderParticles", 1, "image");
-    opencl->setKernelArg("renderParticles", 2, sizeof(int), &size_x2);
+    opencl->setKernelArg("renderParticles", 2, sizeof(int), &(config->width));
 
     opencl->setKernelBufferArg("invertImage", 0, "image");
 
@@ -413,22 +230,22 @@ void setKernelArgs() {
     opencl->setKernelBufferArg("initParticles", 0, "particles");
     opencl->setKernelBufferArg("initParticles", 1, "randomState");
     opencl->setKernelBufferArg("initParticles", 2, "randomIncrement");
-    opencl->setKernelArg("initParticles", 3, sizeof(float), &particleStepSize);
-    opencl->setKernelArg("initParticles", 4, sizeof(int), &size_x2);
-    opencl->setKernelArg("initParticles", 5, sizeof(int), &size_y2);
+    opencl->setKernelArg("initParticles", 3, sizeof(float), &(config->particleStepSize));
+    opencl->setKernelArg("initParticles", 4, sizeof(int), &(config->width));
+    opencl->setKernelArg("initParticles", 5, sizeof(int), &(config->height));
     
     opencl->setKernelBufferArg("setParticleVels", 0, "particles");
     opencl->setKernelBufferArg("setParticleVels", 1, "randomState");
     opencl->setKernelBufferArg("setParticleVels", 2, "randomIncrement");
-    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &particleStepSize);
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
 }
 
 void initPcg() {
     uint64_t *initState, *initSeq;
-    initState = (uint64_t *)malloc(nParticles * sizeof(uint64_t));
-    initSeq = (uint64_t *)malloc(nParticles * sizeof(uint64_t));
+    initState = (uint64_t *)malloc(config->particleCount * sizeof(uint64_t));
+    initSeq = (uint64_t *)malloc(config->particleCount * sizeof(uint64_t));
 
-    for (int i = 0; i < nParticles; i++) {
+    for (int i = 0; i < config->particleCount; i++) {
         initState[i] = pcg32_random();
         initSeq[i] = pcg32_random();
     }
@@ -452,7 +269,8 @@ void prepare() {
         kernelSpecs
     );
 
-    pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&nParticles); // Seed pcg
+    pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&config->particleCount); // Seed pcg
+    pixelData = (uint32_t *)malloc(config->height * config->width * 3 * sizeof(uint32_t));
 
     setKernelArgs();
 
@@ -466,6 +284,7 @@ void prepare() {
 void cleanup() {
     /* Finalization */
     free(colourMap);
+    free(pixelData);
 
     opencl->cleanup();
 }
@@ -530,8 +349,8 @@ void display() {
             GL_TEXTURE_2D,
             0,
             GL_RGB,
-            size_x,
-            size_y,
+            config->width,
+            config->height,
             0,
             GL_RGB,
             GL_UNSIGNED_INT,
@@ -570,32 +389,32 @@ void display() {
 }
 
 void randomiseParameters() {
-    sensorAngle = 2 * UNI() * M_PI;
-    sensorDist = UNI() * 200;
-    rotationAngle = 2 * UNI() * M_PI;
-    particleStepSize = UNI() * 10;
-    depositAmount = exp(UNI() * 4 - 5.5);
-    stableAverage = UNI() * 0.3 + 0.1;
+    config->sensorAngle = 2 * UNI() * M_PI;
+    config->sensorDist = UNI() * 200;
+    config->rotationAngle = 2 * UNI() * M_PI;
+    config->particleStepSize = UNI() * 10;
+    config->depositAmount = exp(UNI() * 4 - 5.5);
+    config->stableAverage = UNI() * 0.3 + 0.1;
 
-    decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
-    one_9 = 1. / 9. * decayFactor;
+    float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
+    float one_9 = 1. / 9. * decayFactor;
 
     fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
-        sensorAngle, sensorDist, rotationAngle, particleStepSize, depositAmount, stableAverage);
+        config->sensorAngle, config->sensorDist, config->rotationAngle, config->particleStepSize, config->depositAmount, config->stableAverage);
 
     opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&rotationAngle);
-    opencl->setKernelArg("depositStuff1", 4, sizeof(float), (void *)&depositAmount);
+    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
+    opencl->setKernelArg("depositStuff1",  4, sizeof(float), (void *)&(config->depositAmount));
 
     opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&sensorAngle);
-    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&sensorDist);
-    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&rotationAngle);
-    opencl->setKernelArg("depositStuff2", 4, sizeof(float), (void *)&depositAmount);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
+    opencl->setKernelArg("depositStuff2",  4, sizeof(float), (void *)&(config->depositAmount));
 
-    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &particleStepSize);
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
     opencl->step("setParticleVels");
 }
 
@@ -669,6 +488,13 @@ int main(int argc, char **argv) {
         }
     }
 
+    config = new Config("config.cfg");
+
+    windowW = config->width / 2;
+    windowH = config->height / 2;
+    size_x_inv = 1. / config->width;
+    size_y_inv = 1. / config->height;
+
     prepare();
 
     if (recording)
@@ -676,7 +502,7 @@ int main(int argc, char **argv) {
     
 	glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
-    glutInitWindowSize( size_x, size_y );
+    glutInitWindowSize( config->width, config->height );
     glutCreateWindow( "Physarum" );
     
     glutDisplayFunc(&display);
