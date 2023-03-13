@@ -29,8 +29,8 @@ using namespace std;
 // #define size_x 4536
 // #define size_y 2946
 
-// #define size_x 3024
-// #define size_y 1964
+#define size_x 3024
+#define size_y 1964
 
 // #define size_x 5120
 // #define size_y 2880
@@ -38,8 +38,8 @@ using namespace std;
 // #define size_x 2060
 // #define size_y 1440
 
-#define size_x 1400
-#define size_y 802
+// #define size_x 1400
+// #define size_y 802
 
 int windowW = size_x / 2;
 int windowH = size_y / 2;
@@ -63,7 +63,7 @@ typedef struct Particle {
     float velocity;
 } Particle;
 
-uint32_t nParticles = 2000000;
+uint32_t nParticles = 4000000;
 
 // Idk
 // float sensorAngle = 45. / 180. * M_PI / 80.;
@@ -202,12 +202,12 @@ uint32_t nParticles = 2000000;
 // float stableAverage = 0.3875;
 
 // Very dynamic
-float sensorAngle = 5.9553;
-float sensorDist = 197.3020;
-float rotationAngle = 6.2584;
-float particleStepSize = 6.8858;
-float depositAmount = 0.0141;
-float stableAverage = 0.2476;
+// float sensorAngle = 5.9553;
+// float sensorDist = 197.3020;
+// float rotationAngle = 6.2584;
+// float particleStepSize = 6.8858;
+// float depositAmount = 0.0141;
+// float stableAverage = 0.2476;
 
 // Keeps evolving
 // float sensorAngle = 0.1088;
@@ -216,6 +216,13 @@ float stableAverage = 0.2476;
 // float particleStepSize = 1.5837;
 // float depositAmount = 0.0781;
 // float stableAverage = 0.3475;
+
+float sensorAngle = 0.4367;
+float sensorDist = 13.2189;
+float rotationAngle = 0.7218;
+float particleStepSize = 5.9052;
+float depositAmount = 0.1264;
+float stableAverage = 0.2992;
 
 float decayFactor = 1 - (nParticles * depositAmount) / (stableAverage * size_x * size_y);
 float one_9 = 1. / 9. * decayFactor;
