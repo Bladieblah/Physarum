@@ -128,7 +128,7 @@ void OpenCl::swapBuffers(std::string buffer1, std::string buffer2) {
 }
 
 void OpenCl::step(string name) {
-	ret = clEnqueueNDRangeKernel(command_queue, kernels[name], 2, NULL, global_item_size, NULL, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(command_queue, kernels[name], 2, NULL, global_item_size, NULL, 0, NULL, NULL);
     
     if (ret != CL_SUCCESS) {
       fprintf(stderr, "Failed executing kernel [%s]: %d\n", name.c_str(), ret);

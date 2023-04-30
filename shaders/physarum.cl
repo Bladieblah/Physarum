@@ -4,6 +4,8 @@ __constant float rescaleFactor = 1.25213309998062819936804151;
 __constant float invsqrt07 = 1.19522860933439363996881717;
 __constant float imageLim = 0.999;
 
+#define PERIODIC_BOUNDARY
+
 typedef struct Particle {
     float x, y;
     float phi;
@@ -29,17 +31,33 @@ __kernel void diffuse(global float *input, global float *output, float one_9)
         km = x + k;
 
         if (km == -1) {
+#ifdef PERIODIC_BOUNDARY
             km = W-1;
-        } else if (km == W) {
+#else
             km = 0;
+#endif
+        } else if (km == W) {
+#ifdef PERIODIC_BOUNDARY
+            km = 0;
+#else
+            km = W-1;
+#endif
         }
         for (l = -1; l < 2; l++) {
             lm = y + l;
             
             if (lm == -1) {
+#ifdef PERIODIC_BOUNDARY
                 lm = H-1;
-            } else if (lm == H) {
+#else
                 lm = 0;
+#endif
+            } else if (lm == H) {
+#ifdef PERIODIC_BOUNDARY
+                lm = 0;
+#else
+                lm = H-1;
+#endif
             }
             
             conv += input[km + W * lm];
@@ -91,16 +109,11 @@ __kernel void moveParticles(
     else if (fl < fc && fc < fr) {
         particle.phi += rotationAngle;
     }
-    // }
-    // else {
-    //     particle.phi += 10 * rotationAngle * (random[x+2] > 0.5 ? 1 : -1);
-    // }
 
     particle.x += cos(particle.phi) * particle.velocity;
     particle.y += sin(particle.phi) * particle.velocity;
 
-    // Periodic boundary
-    /*
+#ifdef PERIODIC_BOUNDARY
     if (particle.x < 0) {
         particle.x += size_x;
     }
@@ -114,10 +127,7 @@ __kernel void moveParticles(
     else if (particle.y >= size_y) {
         particle.y -= size_y;
     }
-    //*/
-
-    // Hard boundary
-    // /*
+#else
     if (particle.x < 0) {
         particle.x *= -1;
         // particle.phi = M_PI_2_F - particle.phi;
@@ -139,7 +149,7 @@ __kernel void moveParticles(
         // particle.phi *= -1;
         particle.phi = -M_PI_2_F;
     }
-    //*/
+#endif
 
     particles[x] = particle;
 }
