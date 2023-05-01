@@ -33,7 +33,7 @@ void OpenCl::prepare(vector<BufferSpec> bufferSpecs, vector<KernelSpec> kernelSp
     }
     
     source_str = (char *)malloc(MAX_SOURCE_SIZE);
-    source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
+    source_size = fread(source_str, sizeof(char), MAX_SOURCE_SIZE, fp);
     fclose(fp);
     
     setDevice();
@@ -178,7 +178,7 @@ void OpenCl::step(string name, int count) {
     }
 
     getTime();
-    fprintf(stderr, "%s ", kernel.name.c_str());
+    fprintf(stderr, "%s ", name.c_str());
     for (int i = strlen(name.c_str()); i < 20; i++) {
         fprintf(stderr, " ");
     }
@@ -189,7 +189,8 @@ void OpenCl::step(string name, int count) {
         fprintf(stderr, "OpenCL = %09.1fμs", clTime);
     }
 
-    fprintf(stderr, "                    \n");
+    fprintf(stderr, "\n");
+    printCount++;
 }
 
 void OpenCl::readBuffer(string name, void *pointer) {
@@ -302,4 +303,8 @@ void OpenCl::getTime() {
 
         clTime = (float)(end - start) / 1000.;
     }
+}
+
+void OpenCl::startFrame() {
+    printCount = 0;
 }
