@@ -29,10 +29,14 @@ bool showColorBar = false;
 bool recording = false;
 bool renderTrail = false;
 
+// Cycling colors
+double t = 0;
+
 // Array to be drawn
 uint32_t *pixelData;
 
 float *colourMap;
+float *colourMap2;
 int nColours = 765;
 
 typedef struct Particle {
@@ -146,7 +150,30 @@ void makeColourmap() {
         {255,255,255}
     };
 
+    std::vector<float> x_bg = {0., 0.25, 0.5, 0.75, 1.};
+    std::vector< std::vector<float> > y_bg = {
+        {36,35,49},
+        // {29,106,154},
+        // {15,171,179},
+        // {36,153,120},
+        // {65,175,131},
+        {21,190,5},
+    };
+
+    std::vector<float> x_gb = {0., 0.25, 0.5, 0.75, 1.};
+    std::vector< std::vector<float> > y_gb = {
+        {36,35,49},
+        // {44,115,33},
+        // {74,162,37},
+        // {62,121,103},
+        // {43,171,137},
+        {16,185,193},
+    };
+
     Colour col(x_i, y_i, nColours);
+
+    // Colour col(x_w, y_bg, nColours);
+    // Colour col2(x_w, y_gb, nColours);
     
     colourMap = (float *)malloc(3 * nColours * sizeof(float));
     col.apply(colourMap);
@@ -329,6 +356,7 @@ void calculateImage() {
 }
 
 void step() {
+    // iterParticles();
     iterParticles();
     diffuse();
     calculateImage();
@@ -475,10 +503,10 @@ void reshape(int w, int h)
 void setupRecording() {
     // start ffmpeg telling it to expect raw rgba 720p-60hz frames
     // -i - tells it to read frames from stdin
-    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", 1512, 916);
+    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", windowW, windowH);
     // open pipe to ffmpeg's stdin in binary write mode
     ffmpeg = popen(cmd, "w");
-    buffer = new int[1512*916];
+    buffer = new int[windowW*windowH];
 }
 
 int main(int argc, char **argv) {
@@ -497,10 +525,9 @@ int main(int argc, char **argv) {
 
     prepare();
 
-    if (recording)
-        setupRecording();
-    
-	glutInit( &argc, argv );
+    makeColourmap();
+	
+    glutInit( &argc, argv );
     glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
     glutInitWindowSize( config->width, config->height );
     glutCreateWindow( "Physarum" );
@@ -509,6 +536,15 @@ int main(int argc, char **argv) {
     glutIdleFunc(&display);
     glutKeyboardUpFunc(&key_pressed);
     glutReshapeFunc(&reshape);
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "-s") == 0) {
+            recording = true;
+        }
+    }
+
+    if (recording)
+        setupRecording();
     
     glutMainLoop();
 
