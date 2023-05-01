@@ -41,6 +41,35 @@ void showInfo() {
     ImGui::Text("Iterations = %d", iterCount);
 }
 
+void displayControls() {
+    if (ImGui::SliderFloat("Sensor Angle", &(config->sensorAngle), 0, 2 * M_PI)) {
+        opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
+        opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
+    }
+    if (ImGui::SliderFloat("Sensor Dist", &(config->sensorDist), 0, 200)) {
+        opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
+        opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
+    }
+    if (ImGui::SliderFloat("Rot Angle", &(config->rotationAngle), 0, 2 * M_PI)) {
+        opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
+        opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
+    }
+    if (ImGui::SliderFloat("Velocity", &(config->particleStepSize), 0, 10)) {
+        opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
+        opencl->step("setParticleVels");
+    }
+    if (ImGui::SliderFloat("Amount", &(config->depositAmount), exp(-5.5), exp(-1.5))) {
+        opencl->setKernelArg("depositStuff1",  4, sizeof(float), (void *)&(config->depositAmount));
+        opencl->setKernelArg("depositStuff2",  4, sizeof(float), (void *)&(config->depositAmount));
+    }
+    if (ImGui::SliderFloat("Avg", &(config->stableAverage), 0.1, 0.4)) {
+        float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
+        float one_9 = 1. / 9. * decayFactor;
+        opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
+        opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
+    }
+}
+
 void displayMain() {
     // --------------------------- RESET ---------------------------
     glutSetWindow(windowIdMain);
@@ -91,13 +120,17 @@ void displayMain() {
     ImGui_ImplGLUT_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowSize(ImVec2(220, 0));
-    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 200, 0));
+    ImGui::SetNextWindowSize(ImVec2(420, 0));
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 400, 0));
 
-    ImGui::Begin("Gradient colors");
+    ImGui::Begin("Controls");
     ImGui::PushItemWidth(140);
 
     showInfo();
+
+    if (ImGui::CollapsingHeader("Parameters")) {
+        displayControls();
+    }
 
     ImGui::End();
 
