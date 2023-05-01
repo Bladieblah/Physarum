@@ -57,6 +57,9 @@ void Config::setValue(string name, char *value) {
         case 'f':
             *(float *)setting.pointer = atof(value);
             break;
+        case 's':
+            strcpy((char *)setting.pointer, value);
+            break;
         case 'b':
             if (strcmp(value, "true") == 0 || strcmp(value, "1") == 0) {
                 *(bool *)setting.pointer = true;
@@ -94,6 +97,9 @@ void Config::printSetting(string name, Setting setting) {
         break;
     case 'b':
         fprintf(stderr, "%s = %s\n", name.c_str(), *(bool *)setting.pointer ? "true" : "false");
+        break;
+    case 's':
+        fprintf(stderr, "%s = %s\n", name.c_str(), (char *)setting.pointer);
         break;
     
     default:

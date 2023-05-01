@@ -1,3 +1,6 @@
+#ifndef INTERP_H
+#define INTERP_H
+
 #include <math.h>
 #include <vector>
 
@@ -7,8 +10,9 @@ public:
     
     float interpolate(float x0, float x1, float y0, float y1, float p);
     std::vector<float> getValue(float p);
-    std::vector<float> getY(int i);
     
-    std::vector<float> x;
-    std::vector< std::vector<float> > y;
+    std::vector<float> m_x;
+    std::vector< std::vector<float> > m_y;
 };
+
+#endif

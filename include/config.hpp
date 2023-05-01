@@ -15,6 +15,7 @@ public:
 
     unsigned int width = 1080;
     unsigned int height = 720;
+    unsigned int num_colours = 1000;
 
     float sensorAngle = 0.4367;
     float sensorDist = 13.2189;
@@ -25,6 +26,8 @@ public:
 
     bool profile = true;
     bool verbose = true;
+
+    char colour_file[100];
 
     Config(char *filename);
     void printValues();
@@ -49,7 +52,11 @@ private:
         
         {"profile", {'b', (void *)&profile}},
         {"verbose", {'b', (void *)&verbose}},
+        
+        {"colour_file", {'s', (void *)colour_file}},
     };
 };
+
+extern Config *config;
 
 #endif
