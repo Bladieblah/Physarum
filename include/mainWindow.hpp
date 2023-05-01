@@ -2,6 +2,7 @@
 #ifndef RENDER_WINDOW_H
 #define RENDER_WINDOW_H
 
+#include "colourMap.hpp"
 #include "config.hpp"
 #include "opencl.hpp"
 
@@ -10,7 +11,7 @@ typedef struct WindowSettings {
     uint32_t windowW, windowH;
     float zoom = 1, centerX = 0, centerY = 0;
     bool grid = false;
-    bool renderTrail = false;
+    bool renderTrail = true;
 } WindowSettings;
 
 typedef struct MouseState {

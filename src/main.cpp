@@ -12,7 +12,7 @@
 #include <OpenGL/glu.h>
 #include <GLUT/glut.h>
 
-#include "colour.hpp"
+#include "colourMap.hpp"
 #include "config.hpp"
 #include "SimplexNoise.hpp"
 #include "pcg.hpp"
@@ -20,7 +20,6 @@
 #include "mainWindow.hpp"
 
 using namespace std;
-
 
 int windowW, windowH;
 
@@ -33,12 +32,8 @@ float frameTime = 0;
 uint32_t iterCount = 0;
 uint32_t stepCount = 0;
 
-// Cycling colors
-double t = 0;
-
-float *colourMap;
-float *colourMap2;
-int nColours = 765;
+unsigned int *cmap;
+ColourMap *cm;
 
 typedef struct Particle {
     float x, y;
@@ -61,7 +56,7 @@ void createBufferSpecs() {
         {"random",    {NULL, (config->particleCount + 2) * sizeof(float)}},
         {"image",     {NULL, 3 * config->width * config->height * sizeof(uint32_t)}},
         {"image2",    {NULL, 3 * config->width * config->height * sizeof(uint32_t)}},
-        {"colourMap", {NULL, 3 * nColours * sizeof(float)}},
+        {"colourMap", {NULL, 3 * config->num_colours * sizeof(unsigned int)}},
 
         {"randomState",     {NULL, config->particleCount * sizeof(uint64_t)}},
         {"randomIncrement", {NULL, config->particleCount * sizeof(uint64_t)}},
@@ -96,89 +91,6 @@ void createKernelSpecs() {
 char cmd[200];
 FILE* ffmpeg;
 int* buffer;
-
-void makeColourmap() {
-    std::vector<float> x_d = {0., 0.2, 0.4, 0.7, 1.};
-    std::vector< std::vector<float> > y_d = {
-        {26,17,36},
-        {33,130,133},
-        {26,17,36},
-        {200,40,187},
-        {241, 249, 244}
-    };
-
-    std::vector<float> x_i = {0.000, 0.032, 0.065, 0.097, 0.129, 0.161, 0.194, 0.226, 0.258, 0.290, 0.323, 0.355, 0.387, 0.419, 0.452, 0.484, 0.516, 0.548, 0.581, 0.613, 0.645, 0.677, 0.710, 0.742, 0.774, 0.806, 0.839, 0.871, 0.903, 0.935, 0.968, 1.000};
-    std::vector< std::vector<float> > y_i = {
-        {0,0,3},
-        {3,2,18},
-        {10,7,35},
-        {20,11,54},
-        {34,11,76},
-        {48,10,92},
-        {62,9,102},
-        {75,12,107},
-        {90,17,109},
-        {102,21,110},
-        {115,26,109},
-        {128,31,107},
-        {142,36,104},
-        {155,40,100},
-        {167,45,95},
-        {180,51,88},
-        {193,58,80},
-        {204,65,72},
-        {214,74,63},
-        {223,84,54},
-        {232,97,43},
-        {239,109,33},
-        {244,122,22},
-        {248,136,12},
-        {251,153,6},
-        {251,168,13},
-        {251,183,28},
-        {249,199,47},
-        {245,217,72},
-        {241,232,100},
-        {242,244,133},
-        {252,254,164},
-    };
-
-    vector<float> x_w = {0., 1.};
-    vector< vector<float> > y_w = {
-        {0,0,0},
-        {255,255,255}
-    };
-
-    std::vector<float> x_bg = {0., 0.25, 0.5, 0.75, 1.};
-    std::vector< std::vector<float> > y_bg = {
-        {36,35,49},
-        // {29,106,154},
-        // {15,171,179},
-        // {36,153,120},
-        // {65,175,131},
-        {21,190,5},
-    };
-
-    std::vector<float> x_gb = {0., 0.25, 0.5, 0.75, 1.};
-    std::vector< std::vector<float> > y_gb = {
-        {36,35,49},
-        // {44,115,33},
-        // {74,162,37},
-        // {62,121,103},
-        // {43,171,137},
-        {16,185,193},
-    };
-
-    Colour col(x_i, y_i, nColours);
-
-    // Colour col(x_w, y_bg, nColours);
-    // Colour col2(x_w, y_gb, nColours);
-    
-    colourMap = (float *)malloc(3 * nColours * sizeof(float));
-    col.apply(colourMap);
-
-    opencl->writeBuffer("colourMap", (void *)colourMap);
-}
 
 void setKernelArgs() {
     float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
@@ -235,12 +147,12 @@ void setKernelArgs() {
     opencl->setKernelBufferArg("processTrail1", 0, "trail");
     opencl->setKernelBufferArg("processTrail1", 1, "image");
     opencl->setKernelBufferArg("processTrail1", 2, "colourMap");
-    opencl->setKernelArg("processTrail1", 3, sizeof(int), (void *)&nColours);
+    opencl->setKernelArg("processTrail1", 3, sizeof(int), (void *)&(config->num_colours));
 
     opencl->setKernelBufferArg("processTrail2", 0, "trailCopy");
     opencl->setKernelBufferArg("processTrail2", 1, "image");
     opencl->setKernelBufferArg("processTrail2", 2, "colourMap");
-    opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&nColours);
+    opencl->setKernelArg("processTrail2", 3, sizeof(int), (void *)&(config->num_colours));
 
     opencl->setKernelBufferArg("resetImage", 0, "image");
 
@@ -295,12 +207,26 @@ void prepare() {
         kernelSpecs
     );
 
+    char filename[120] = "colourmaps/default.cm";
+    if (strlen(config->colour_file)) {
+        fprintf(stderr, "Writing fn\n");
+        sprintf(filename, "colourmaps/%s", config->colour_file);
+        fprintf(stderr, "Writing fn done\n");
+    }
+    cm = ColourMapFromFile(filename, config->num_colours);
+    cmap = (unsigned int *)malloc(3 * config->num_colours * sizeof(unsigned int));
+    cm->apply(cmap);
+    opencl->writeBuffer("colourMap", cmap);
+    opencl->readBuffer("colourMap", cmap);
+
+    for (int i=0; i < 10; i++) {
+        fprintf(stderr, "%d %d %d\n", cmap[3*i], cmap[3*i+1], cmap[3*i+2]);
+    }
+
+
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&config->particleCount); // Seed pcg
-
     setKernelArgs();
-
     initPcg();
-    makeColourmap();
 
     opencl->step("resetTrail");
     opencl->step("initParticles");
@@ -308,8 +234,6 @@ void prepare() {
 
 void cleanup() {
     /* Finalization */
-    free(colourMap);
-
     opencl->cleanup();
 }
 
@@ -376,6 +300,7 @@ void display() {
         fwrite(buffer, sizeof(int) * 1512 * 916, 1, ffmpeg);
     }
     
+    // fprintf(stderr, "%.6f                                                    \n", pixelsMain[(int)(config->width * (config->height / 2) + config->width / 2)] / (double)UINT_MAX);
     step();
     iterCount++;
 
@@ -431,8 +356,6 @@ int main(int argc, char **argv) {
 
     prepare();
     atexit(&cleanAll);
-
-    makeColourmap();
     
     glutInit(&argc, argv);
     createMainWindow("Physarum", config->width, config->height);

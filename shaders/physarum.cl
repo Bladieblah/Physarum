@@ -379,7 +379,7 @@ __kernel void resetTrail(
 __kernel void processTrail(
     global float *trail, 
     global uint *image, 
-    global float *colourMap,
+    global unsigned int *colourMap,
     int nColours
 ) {
     const int x = get_global_id(0);
@@ -396,7 +396,7 @@ __kernel void processTrail(
     ind2 = 3 * (int)(fmin(imageLim, brightness) * nColours);
 
     for (int k = 0; k < 3; k++) {
-        image[3 * ind + k] = colourMap[ind2 + k] * 4294967295;
+        image[3 * ind + k] = colourMap[ind2 + k];
     }
 }
 

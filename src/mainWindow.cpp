@@ -188,7 +188,6 @@ void mousePressedMain(int button, int state, int x, int y) {
 }
 
 void mouseMovedMain(int x, int y) {
-    ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplGLUT_MotionFunc(x, y);
 
     mouseMain.x = x;
