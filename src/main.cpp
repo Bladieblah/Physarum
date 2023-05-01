@@ -217,12 +217,6 @@ void prepare() {
     cmap = (unsigned int *)malloc(3 * config->num_colours * sizeof(unsigned int));
     cm->apply(cmap);
     opencl->writeBuffer("colourMap", cmap);
-    opencl->readBuffer("colourMap", cmap);
-
-    for (int i=0; i < 10; i++) {
-        fprintf(stderr, "%d %d %d\n", cmap[3*i], cmap[3*i+1], cmap[3*i+2]);
-    }
-
 
     pcg32_srandom(time(NULL) ^ (intptr_t)&printf, (intptr_t)&config->particleCount); // Seed pcg
     setKernelArgs();
@@ -230,11 +224,6 @@ void prepare() {
 
     opencl->step("resetTrail");
     opencl->step("initParticles");
-}
-
-void cleanup() {
-    /* Finalization */
-    opencl->cleanup();
 }
 
 void iterParticles() {
@@ -300,7 +289,6 @@ void display() {
         fwrite(buffer, sizeof(int) * 1512 * 916, 1, ffmpeg);
     }
     
-    // fprintf(stderr, "%.6f                                                    \n", pixelsMain[(int)(config->width * (config->height / 2) + config->width / 2)] / (double)UINT_MAX);
     step();
     iterCount++;
 
@@ -344,6 +332,7 @@ int main(int argc, char **argv) {
     }
 
     config = new Config("config.cfg");
+    config->printValues();
 
     windowW = config->width / 2;
     windowH = config->height / 2;
