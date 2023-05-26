@@ -171,7 +171,7 @@ __kernel void initParticles(
     particles[x].x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
     particles[x].y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
     particles[x].phi = atan2(yc - particles[x].y, xc - particles[x].x);
-    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 1;
+    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 0.1;
 }
 
 __kernel void setParticleVels(
@@ -274,7 +274,8 @@ __kernel void moveParticles(
     fr = trail[(int)frx + size_x * (int)fry];
 
     if (fc < fl && fc < fr) {
-        particle.phi += rotationAngle * (uniformRand(randomState, randomIncrement, x) > 0.5 ? 1 : -1);
+        // particle.phi += rotationAngle * (uniformRand(randomState, randomIncrement, x) > 0.5 ? 1 : -1);
+        particle.phi += rotationAngle * (uniformRand(randomState, randomIncrement, x) * 2 - 1);
     }
     else if (fl > fc && fc > fr) {
         particle.phi -= rotationAngle;
