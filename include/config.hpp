@@ -20,7 +20,8 @@ public:
     float sensorAngle = 0.4367;
     float sensorDist = 13.2189;
     float rotationAngle = 0.7218;
-    float particleStepSize = 5.9052;
+    float velocitySpread = 5.9052;
+    float baseVelocity = 1.;
     float depositAmount = 0.1264;
     float stableAverage = 0.2992;
 
@@ -43,12 +44,13 @@ private:
         {"width", {'i', (void *)&width}},
         {"height", {'i', (void *)&height}},
 
-        {"sensorAngle",      {'f', (void *)&sensorAngle}},
-        {"sensorDist",       {'f', (void *)&sensorDist}},
-        {"rotationAngle",    {'f', (void *)&rotationAngle}},
-        {"particleStepSize", {'f', (void *)&particleStepSize}},
-        {"depositAmount",    {'f', (void *)&depositAmount}},
-        {"stableAverage",    {'f', (void *)&stableAverage}},
+        {"sensorAngle",    {'f', (void *)&sensorAngle}},
+        {"sensorDist",     {'f', (void *)&sensorDist}},
+        {"rotationAngle",  {'f', (void *)&rotationAngle}},
+        {"velocitySpread", {'f', (void *)&velocitySpread}},
+        {"baseVelocity",   {'f', (void *)&baseVelocity}},
+        {"depositAmount",  {'f', (void *)&depositAmount}},
+        {"stableAverage",  {'f', (void *)&stableAverage}},
         
         {"profile", {'b', (void *)&profile}},
         {"verbose", {'b', (void *)&verbose}},

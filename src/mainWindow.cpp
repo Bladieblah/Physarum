@@ -52,8 +52,14 @@ void displayControls() {
         opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
         opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
     }
-    if (ImGui::SliderFloat("Velocity", &(config->particleStepSize), 0, 200, "%.3f", ImGuiSliderFlags_Logarithmic)) {
-        opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
+    if (ImGui::SliderFloat("Velocity Spread", &(config->velocitySpread), 0, 200, "%.3f", ImGuiSliderFlags_Logarithmic)) {
+        opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->velocitySpread));
+        opencl->setKernelArg("initParticles", 3, sizeof(float), &(config->velocitySpread));
+        opencl->step("setParticleVels");
+    }
+    if (ImGui::SliderFloat("Base Velocity", &(config->baseVelocity), 0.1, 200, "%.3f", ImGuiSliderFlags_Logarithmic)) {
+        opencl->setKernelArg("setParticleVels", 4, sizeof(float), &(config->baseVelocity));
+        opencl->setKernelArg("initParticles", 4, sizeof(float), &(config->baseVelocity));
         opencl->step("setParticleVels");
     }
     if (ImGui::SliderFloat("Amount", &(config->depositAmount), exp(-5.5), exp(-1.5), "%.3f", ImGuiSliderFlags_Logarithmic)) {
@@ -73,15 +79,15 @@ void displayControls() {
 }
 
 void printParameters() {
-    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
-        config->sensorAngle, config->sensorDist, config->rotationAngle, config->particleStepSize, config->depositAmount, config->stableAverage);
+    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nvelocitySpread = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
+        config->sensorAngle, config->sensorDist, config->rotationAngle, config->velocitySpread, config->depositAmount, config->stableAverage);
 }
 
 void randomiseParameters() {
     config->sensorAngle = (UNI() - 0.5) * M_PI;
     config->sensorDist = UNI() * 200;
     config->rotationAngle = (2 * UNI() - 1) * M_PI;
-    config->particleStepSize = UNI() * 200;
+    config->velocitySpread = UNI() * 200;
     config->depositAmount = exp(UNI() * 4 - 5.5);
     config->stableAverage = UNI() * 0.6 + 0.1;
 
@@ -102,7 +108,12 @@ void randomiseParameters() {
     opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
     opencl->setKernelArg("depositStuff2",  4, sizeof(float), (void *)&(config->depositAmount));
 
-    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->velocitySpread));
+    opencl->setKernelArg("setParticleVels", 4, sizeof(float), &(config->baseVelocity));
+    
+    opencl->setKernelArg("initParticles", 3, sizeof(float), &(config->velocitySpread));
+    opencl->setKernelArg("initParticles", 4, sizeof(float), &(config->baseVelocity));
+    
     opencl->step("setParticleVels");
 }
 
@@ -189,7 +200,6 @@ void keyPressedMain(unsigned char key, int x, int y) {
         case 'r':
             opencl->step("resetTrail");
             opencl->step("initParticles");
-            opencl->step("setParticleVels");
             iterCount = 0;
             break;
         case 't':

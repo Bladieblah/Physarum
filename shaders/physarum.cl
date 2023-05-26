@@ -140,11 +140,23 @@ inline float clip(float in, float lower, float upper) {
     return in;
 }
 
+__kernel void setParticleVels(
+    global Particle *particles,
+    global ulong *randomState,
+    global ulong *randomIncrement,
+    float velocitySpread,
+    float baseVelocity
+) {
+    const int x = get_global_id(0);
+    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * velocitySpread + baseVelocity;
+}
+
 __kernel void initParticles(
     global Particle *particles,
     global ulong *randomState,
     global ulong *randomIncrement,
-    float particleStepSize,
+    float velocitySpread,
+    float baseVelocity,
     int size_x,
     int size_y
 ) {
@@ -171,17 +183,8 @@ __kernel void initParticles(
     particles[x].x = clip(cos(theta) * rad * size_y + xc, 0., size_x);
     particles[x].y = clip(sin(theta) * rad * size_y + yc, 0., size_y);
     particles[x].phi = atan2(yc - particles[x].y, xc - particles[x].x);
-    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 0.1;
-}
 
-__kernel void setParticleVels(
-    global Particle *particles,
-    global ulong *randomState,
-    global ulong *randomIncrement,
-    float particleStepSize
-) {
-    const int x = get_global_id(0);
-    particles[x].velocity = uniformRand(randomState, randomIncrement, x) * particleStepSize + 1;
+    setParticleVels(particles, randomState, randomIncrement, velocitySpread, baseVelocity);
 }
 
 __kernel void diffuse(global float *input, global float *output, float one_9)

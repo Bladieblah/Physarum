@@ -169,14 +169,16 @@ void setKernelArgs() {
     opencl->setKernelBufferArg("initParticles", 0, "particles");
     opencl->setKernelBufferArg("initParticles", 1, "randomState");
     opencl->setKernelBufferArg("initParticles", 2, "randomIncrement");
-    opencl->setKernelArg("initParticles", 3, sizeof(float), &(config->particleStepSize));
-    opencl->setKernelArg("initParticles", 4, sizeof(int), &(config->width));
-    opencl->setKernelArg("initParticles", 5, sizeof(int), &(config->height));
+    opencl->setKernelArg("initParticles", 3, sizeof(float), &(config->velocitySpread));
+    opencl->setKernelArg("initParticles", 4, sizeof(float), &(config->baseVelocity));
+    opencl->setKernelArg("initParticles", 5, sizeof(int), &(config->width));
+    opencl->setKernelArg("initParticles", 6, sizeof(int), &(config->height));
     
     opencl->setKernelBufferArg("setParticleVels", 0, "particles");
     opencl->setKernelBufferArg("setParticleVels", 1, "randomState");
     opencl->setKernelBufferArg("setParticleVels", 2, "randomIncrement");
-    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->velocitySpread));
+    opencl->setKernelArg("setParticleVels", 4, sizeof(float), &(config->baseVelocity));
 }
 
 void initPcg() {
