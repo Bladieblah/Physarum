@@ -12,6 +12,7 @@ typedef struct WindowSettings {
     float zoom = 1, centerX = 0, centerY = 0;
     bool grid = false;
     bool renderTrail = false;
+    bool record = false;
 } WindowSettings;
 
 typedef struct MouseState {

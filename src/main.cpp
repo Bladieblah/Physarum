@@ -21,10 +21,11 @@
 
 using namespace std;
 
-int windowW, windowH;
+int recordingWidth, recordingHeight;
 
 float size_x_inv, size_y_inv;
-bool recording = false;
+bool recordingMP4 = false;
+bool recordingGIF = false;
 
 chrono::high_resolution_clock::time_point timePoint;
 unsigned int frameCount = 0;
@@ -273,6 +274,25 @@ void step() {
     stepCount++;
 }
 
+void setupRecordingMP4() {
+    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgb32 -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", recordingWidth, recordingHeight);
+    ffmpeg = popen(cmd, "w");
+    buffer = new int[recordingWidth * recordingHeight];
+    settingsMain.record = true;
+}
+
+void setupRecordingGIF() {
+    fprintf(stderr, "Setting up recording gif\n");
+    sprintf(cmd, "ffmpeg -r 120 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -y -pix_fmt bgr8 -r 30 -vf \"fps=30,scale=1080:-1:flags=lanczos,vflip,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse\" output.gif", recordingWidth, recordingHeight);
+    ffmpeg = popen(cmd, "w");
+    if (!ffmpeg) {
+        fprintf(stderr, "Failed to settingsMain.record\n");
+        return;
+    }
+    buffer = new int[recordingWidth * recordingHeight];
+    settingsMain.record = true;
+}
+
 void display() {
     frameCount++;
 
@@ -280,13 +300,23 @@ void display() {
         return;
     }
 
+    if (frameCount > 4 && !settingsMain.record && (recordingGIF || recordingMP4)) {
+        recordingWidth = settingsMain.windowW;
+        recordingHeight = settingsMain.windowH;
+        if (recordingMP4) {
+            setupRecordingMP4();
+        } else if (recordingGIF) {
+            setupRecordingGIF();
+        }
+    }
+
     opencl->startFrame();
 
     displayMain();
 
-    if (recording) {
-        glReadPixels(0, 0, 1512, 916, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        fwrite(buffer, sizeof(int) * 1512 * 916, 1, ffmpeg);
+    if (settingsMain.record) {
+        glReadPixels(0, 0, recordingWidth, recordingHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        fwrite(buffer, sizeof(int) * recordingWidth * recordingHeight, 1, ffmpeg);
     }
     
     step();
@@ -301,15 +331,6 @@ void display() {
     timePoint = temp;
 }
 
-void setupRecording() {
-    // start ffmpeg telling it to expect raw rgba 720p-60hz frames
-    // -i - tells it to read frames from stdin
-    sprintf(cmd, "ffmpeg -r 60 -f rawvideo -pix_fmt rgba -s %dx%d -i - -threads 0 -preset fast -y -pix_fmt yuv420p -crf 21 -vf vflip output.mp4", windowW, windowH);
-    // open pipe to ffmpeg's stdin in binary write mode
-    ffmpeg = popen(cmd, "w");
-    buffer = new int[windowW * windowH];
-}
-
 void cleanAll() {
     for (int i = 0; i <= opencl->printCount; i++) {
         fprintf(stderr, "\n");
@@ -319,7 +340,7 @@ void cleanAll() {
     destroyMainWindow();
     opencl->cleanup();
 
-    if (recording) {
+    if (settingsMain.record) {
         pclose(ffmpeg);
     }
 }
@@ -327,21 +348,17 @@ void cleanAll() {
 int main(int argc, char **argv) {
     if (argc > 1) {
         if (strcmp(argv[1], "-s") == 0) {
-            recording = true;
+            recordingMP4 = true;
+        } else if (strcmp(argv[1], "-g") == 0) {
+            recordingGIF = true;
         }
     }
 
     config = new Config("config.cfg");
     config->printValues();
 
-    windowW = config->width / 2;
-    windowH = config->height / 2;
     size_x_inv = 1. / config->width;
     size_y_inv = 1. / config->height;
-
-    if (recording) {
-        setupRecording();
-    }
 
     prepare();
     atexit(&cleanAll);
@@ -350,7 +367,7 @@ int main(int argc, char **argv) {
     createMainWindow("Physarum", config->width, config->height);
     glutDisplayFunc(&display);
     glutIdleFunc(&display);
-    
+
     glutMainLoop();
 
     return 0;

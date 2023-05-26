@@ -33,6 +33,7 @@
 
 # Output
 *.mp4
+*.gif
 
 # Config
 *.json

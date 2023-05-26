@@ -159,20 +159,23 @@ void displayMain() {
     ImGui::SetNextWindowSize(ImVec2(500, 0));
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 500, 0));
 
-    ImGui::Begin("Controls");
-    ImGui::PushItemWidth(340);
+    if (!settingsMain.record) {
+        ImGui::Begin("Controls");
+        ImGui::PushItemWidth(340);
 
-    showInfo();
+        showInfo();
 
-    if (ImGui::CollapsingHeader("Parameters")) {
-        displayControls();
+        if (ImGui::CollapsingHeader("Parameters")) {
+            displayControls();
+        }
+
+        ImGui::End();
     }
-
-    ImGui::End();
 
     // --------------------------- DRAW ---------------------------
     ImGui::Render();
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+
     glFlush();
     glutSwapBuffers();
 }
@@ -239,6 +242,8 @@ void onReshapeMain(int w, int h) {
     settingsMain.windowW = w;
     settingsMain.windowH = h;
 
+    fprintf(stderr, "Resizing to %dx%d\n", settingsMain.windowW, settingsMain.windowH);
+
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glViewport(0, 0, w, h);
@@ -248,6 +253,8 @@ void onReshapeMain(int w, int h) {
 void createMainWindow(char *name, uint32_t width, uint32_t height) {
     settingsMain.width = width;
     settingsMain.height = height;
+    settingsMain.windowW = width;
+    settingsMain.windowH = height;
 
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
     glutInitWindowSize(width, height);
