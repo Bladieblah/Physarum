@@ -44,7 +44,7 @@ void displayControls() {
         opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
         opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
     }
-    if (ImGui::SliderFloat("Sensor Dist", &(config->sensorDist), 0, 100, "%.3f", ImGuiSliderFlags_Logarithmic)) {
+    if (ImGui::SliderFloat("Sensor Dist", &(config->sensorDist), 0, 200, "%.3f", ImGuiSliderFlags_Logarithmic)) {
         opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
         opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
     }
@@ -70,6 +70,40 @@ void displayControls() {
         opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
         opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
     }
+}
+
+void printParameters() {
+    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
+        config->sensorAngle, config->sensorDist, config->rotationAngle, config->particleStepSize, config->depositAmount, config->stableAverage);
+}
+
+void randomiseParameters() {
+    config->sensorAngle = (UNI() - 0.5) * M_PI;
+    config->sensorDist = UNI() * 200;
+    config->rotationAngle = (2 * UNI() - 1) * M_PI;
+    config->particleStepSize = UNI() * 200;
+    config->depositAmount = exp(UNI() * 4 - 5.5);
+    config->stableAverage = UNI() * 0.6 + 0.1;
+
+    float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
+    float one_9 = 1. / 9. * decayFactor;
+
+    printParameters();
+
+    opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
+    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
+    opencl->setKernelArg("depositStuff1",  4, sizeof(float), (void *)&(config->depositAmount));
+
+    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
+    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
+    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
+    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
+    opencl->setKernelArg("depositStuff2",  4, sizeof(float), (void *)&(config->depositAmount));
+
+    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
+    opencl->step("setParticleVels");
 }
 
 void displayMain() {
@@ -141,40 +175,6 @@ void displayMain() {
     ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
     glFlush();
     glutSwapBuffers();
-}
-
-void printParameters() {
-    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nparticleStepSize = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
-        config->sensorAngle, config->sensorDist, config->rotationAngle, config->particleStepSize, config->depositAmount, config->stableAverage);
-}
-
-void randomiseParameters() {
-    config->sensorAngle = 2 * UNI() * M_PI;
-    config->sensorDist = UNI() * 200;
-    config->rotationAngle = 2 * UNI() * M_PI;
-    config->particleStepSize = UNI() * 10;
-    config->depositAmount = exp(UNI() * 4 - 5.5);
-    config->stableAverage = UNI() * 0.3 + 0.1;
-
-    float decayFactor = 1 - (config->particleCount * config->depositAmount) / (config->stableAverage * config->width * config->height);
-    float one_9 = 1. / 9. * decayFactor;
-
-    printParameters();
-
-    opencl->setKernelArg("diffuse1", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles1", 6, sizeof(float), (void *)&(config->sensorAngle));
-    opencl->setKernelArg("moveParticles1", 7, sizeof(float), (void *)&(config->sensorDist));
-    opencl->setKernelArg("moveParticles1", 8, sizeof(float), (void *)&(config->rotationAngle));
-    opencl->setKernelArg("depositStuff1",  4, sizeof(float), (void *)&(config->depositAmount));
-
-    opencl->setKernelArg("diffuse2", 2, sizeof(float), (void *)&one_9);
-    opencl->setKernelArg("moveParticles2", 6, sizeof(float), (void *)&(config->sensorAngle));
-    opencl->setKernelArg("moveParticles2", 7, sizeof(float), (void *)&(config->sensorDist));
-    opencl->setKernelArg("moveParticles2", 8, sizeof(float), (void *)&(config->rotationAngle));
-    opencl->setKernelArg("depositStuff2",  4, sizeof(float), (void *)&(config->depositAmount));
-
-    opencl->setKernelArg("setParticleVels", 3, sizeof(float), &(config->particleStepSize));
-    opencl->step("setParticleVels");
 }
 
 void keyPressedMain(unsigned char key, int x, int y) {
