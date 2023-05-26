@@ -34,6 +34,8 @@
 # Output
 *.mp4
 *.gif
+!/public/*.gif
 
 # Config
 *.json
+

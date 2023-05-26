@@ -31,3 +31,6 @@ Record a simulation by running with the `-s` option, requires ffmpeg to work.
 make
 ./physarum.out -s
 ```
+
+## Gallery
+![Demo 1](public/demo1.gif)
