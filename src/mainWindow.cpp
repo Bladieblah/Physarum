@@ -79,8 +79,8 @@ void displayControls() {
 }
 
 void printParameters() {
-    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nvelocitySpread = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
-        config->sensorAngle, config->sensorDist, config->rotationAngle, config->velocitySpread, config->depositAmount, config->stableAverage);
+    fprintf(stderr, "\n\n\n\n\n\n\n\n\nsensorAngle = %.4f;\nsensorDist = %.4f;\nrotationAngle = %.4f;\nvelocitySpread = %.4f;\nbaseVelocity = %.4f;\ndepositAmount = %.4f;\nstableAverage = %.4f;\n\n",
+        config->sensorAngle, config->sensorDist, config->rotationAngle, config->velocitySpread, config->baseVelocity, config->depositAmount, config->stableAverage);
 }
 
 void randomiseParameters() {

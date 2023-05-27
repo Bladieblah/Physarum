@@ -209,13 +209,15 @@ __kernel void diffuse(global float *input, global float *output, float one_9)
 #ifdef PERIODIC_BOUNDARY
             km = W-1;
 #else
-            km = 0;
+            // km = 0;
+            continue;
 #endif
         } else if (km == W) {
 #ifdef PERIODIC_BOUNDARY
             km = 0;
 #else
-            km = W-1;
+            // km = W-1;
+            continue;
 #endif
         }
         for (l = -1; l < 2; l++) {
@@ -225,13 +227,15 @@ __kernel void diffuse(global float *input, global float *output, float one_9)
 #ifdef PERIODIC_BOUNDARY
                 lm = H-1;
 #else
-                lm = 0;
+                // lm = 0
+                continue;
 #endif
             } else if (lm == H) {
 #ifdef PERIODIC_BOUNDARY
                 lm = 0;
 #else
-                lm = H-1;
+                // lm = H-1;
+                continue;
 #endif
             }
             
@@ -258,11 +262,10 @@ __kernel void moveParticles(
     const int nParticles = get_global_size(0);
     
     float fl, fc, fr;
-    float flx, fly, fcx, fcy, frx, fry;
+    int flx, fly, fcx, fcy, frx, fry;
 
     Particle particle = particles[x];
 
-    // if (random[x] < 0.99) {
     flx = particle.x + cos(particle.phi - sensorAngle) * sensorDist;
     fly = particle.y + sin(particle.phi - sensorAngle) * sensorDist;
 
@@ -272,9 +275,15 @@ __kernel void moveParticles(
     frx = particle.x + cos(particle.phi + sensorAngle) * sensorDist;
     fry = particle.y + sin(particle.phi + sensorAngle) * sensorDist;
 
-    fl = trail[(int)flx + size_x * (int)fly];
-    fc = trail[(int)fcx + size_x * (int)fcy];
-    fr = trail[(int)frx + size_x * (int)fry];
+#ifdef PERIODIC_BOUNDARY
+    fl = trail[clamp((int)flx, 0, size_x - 1) + size_x * clamp((int)fly, 0, size_y - 1)];
+    fc = trail[clamp((int)fcx, 0, size_x - 1) + size_x * clamp((int)fcy, 0, size_y - 1)];
+    fr = trail[clamp((int)frx, 0, size_x - 1) + size_x * clamp((int)fry, 0, size_y - 1)];
+#else
+    fl = trail[(((int)flx + size_x) % size_x) + size_x * (((int)fly + size_y) % size_y)];
+    fc = trail[(((int)fcx + size_x) % size_x) + size_x * (((int)fcy + size_y) % size_y)];
+    fr = trail[(((int)frx + size_x) % size_x) + size_x * (((int)fry + size_y) % size_y)];
+#endif
 
     if (fc < fl && fc < fr) {
         // particle.phi += rotationAngle * (uniformRand(randomState, randomIncrement, x) > 0.5 ? 1 : -1);
@@ -307,24 +316,24 @@ __kernel void moveParticles(
 #else
     if (particle.x < 0) {
         particle.x *= -1;
-        // particle.phi = M_PI_2_F - particle.phi;
-        particle.phi = 0;
+        particle.phi = M_PI_F - particle.phi;
+        // particle.phi = 0;
     }
     else if (particle.x >= size_x) {
         particle.x = 2 * size_x - particle.x;
-        // particle.phi = M_PI_2_F - particle.phi;
-        particle.phi = M_PI_F;
+        particle.phi = M_PI_F - particle.phi;
+        // particle.phi = M_PI_F;
     }
 
     if (particle.y < 0) {
         particle.y *= -1;
-        // particle.phi *= -1;
-        particle.phi = M_PI_2_F;
+        particle.phi *= -1;
+        // particle.phi = M_PI_2_F;
     }
     else if (particle.y >= size_y) {
         particle.y = 2 * size_y - particle.y;
-        // particle.phi *= -1;
-        particle.phi = -M_PI_2_F;
+        particle.phi *= -1;
+        // particle.phi = -M_PI_2_F;
     }
 #endif
 

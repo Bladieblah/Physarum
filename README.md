@@ -34,3 +34,4 @@ make
 
 ## Gallery
 ![Demo 1](public/demo1.gif)
+![Demo 2](public/demo2.gif)
